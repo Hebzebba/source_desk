@@ -19,6 +19,7 @@ model User {
   lastName  String
   password  String
   role      Role      @default(CUSTOMER)
+  avatarKey String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   requests  Request[]

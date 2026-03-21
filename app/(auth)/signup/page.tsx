@@ -12,6 +12,8 @@ export default function SignupForm() {
     password: "",
   });
 
+  const [avatarName, setAvatarName] = useState<string | null>(null);
+
   const [state, action, pending] = useActionState(signup, undefined);
 
   const errors = (state?.errors ?? {}) as SignupErrors;
@@ -26,6 +28,7 @@ export default function SignupForm() {
     if (state?.success) {
       toast.success("Account created successfully");
       setValues({ firstName: "", lastName: "", email: "", password: "" });
+      setAvatarName(null);
     }
   }, [state?.success]);
 
@@ -141,6 +144,51 @@ export default function SignupForm() {
             />
 
             {errors.password?.map((err) => (
+              <p key={err} className="text-xs text-red-500">
+                {err}
+              </p>
+            ))}
+          </div>
+
+          {/* Avatar / Profile Picture */}
+          <div className="space-y-1">
+            <label
+              htmlFor="avatar"
+              className="text-xs font-medium text-gray-600"
+            >
+              Profile Picture{" "}
+              <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+
+            <label
+              htmlFor="avatar"
+              className="flex items-center gap-3 w-full rounded-lg border border-gray-200 bg-white/80 px-3 py-2 text-sm cursor-pointer transition-all duration-200 hover:border-gray-400 hover:ring-2 hover:ring-gray-200"
+            >
+              <span className="shrink-0 rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                Choose file
+              </span>
+              <span className="truncate text-gray-400">
+                {avatarName ?? "No file chosen"}
+              </span>
+            </label>
+
+            <input
+              id="avatar"
+              name="avatar"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                setAvatarName(f ? f.name : null);
+              }}
+            />
+
+            <p className="text-xs text-gray-400">
+              JPEG, PNG, GIF, WEBP or PDF · max 10 MB
+            </p>
+
+            {errors.file?.map((err) => (
               <p key={err} className="text-xs text-red-500">
                 {err}
               </p>
