@@ -35,7 +35,7 @@ POST /api/users
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, firstName, lastName, password, role } = body;
+    const { email, firstName, lastName, password, role, avatarKey } = body;
 
     // Validation
     if (!email || !firstName || !lastName || !password) {
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
         lastName,
         password: hashedPassword,
         role: role || "CUSTOMER",
+        ...(avatarKey ? { avatarKey } : {}),
       },
     });
 

@@ -21,7 +21,16 @@ export type FormState =
         lastName?: string[];
         email?: string[];
         password?: string[];
+        file?: string[];
+        form?: string[];
+      };
+      values?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        password?: string;
       };
       message?: string;
+      success?: boolean;
     }
   | undefined;
