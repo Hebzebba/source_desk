@@ -38,6 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         id: true,
         customerId: true,
         description: true,
+        img_url: true,
         quotePrice: true,
         finalPrice: true,
         status: true,

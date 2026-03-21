@@ -13,6 +13,7 @@ interface RequestData {
   id: string;
   customerId: string;
   description: string;
+  img_url: string;
   quotePrice: number;
   finalPrice: number;
   status: string;
@@ -87,6 +88,35 @@ export default function CustomerRequestTable({ refreshKey, customerId }: Custome
     return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
   };
 
+  const parseImageUrls = (imgUrl: string): string[] => {
+    if (!imgUrl) return [];
+    try {
+      const parsed = JSON.parse(imgUrl);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Legacy single URL format
+      if (imgUrl.startsWith("http")) return [imgUrl];
+    }
+    return [];
+  };
+
+  const imageBodyTemplate = (rowData: RequestData) => {
+    const urls = parseImageUrls(rowData.img_url);
+    if (!urls.length) return <span style={{ color: "#94a3b8" }}>—</span>;
+    return (
+      <div className="flex gap-1">
+        {urls.map((url, idx) => (
+          <img
+            key={idx}
+            src={url}
+            alt={`Request ${idx + 1}`}
+            style={{ width: "3rem", height: "3rem", objectFit: "cover", borderRadius: "0.5rem", border: "1px solid #e2e8f0" }}
+          />
+        ))}
+      </div>
+    );
+  };
+
   const descriptionBodyTemplate = (rowData: RequestData) => {
     return <span style={{ color: "#334155" }}>{rowData.description.length > 60 ? rowData.description.slice(0, 60) + "…" : rowData.description}</span>;
   };
@@ -154,6 +184,7 @@ export default function CustomerRequestTable({ refreshKey, customerId }: Custome
       dataKey="id"
       className="border-round-xl"
     >
+      <Column header="Image" body={imageBodyTemplate} style={{ width: "5rem" }} />
       <Column field="description" header="Description" body={descriptionBodyTemplate} sortable style={{ maxWidth: "20rem" }} />
       <Column field="status" header="Status" body={statusBodyTemplate} sortable style={{ width: "10rem" }} />
       <Column field="finalPrice" header="Price" body={priceBodyTemplate} sortable />

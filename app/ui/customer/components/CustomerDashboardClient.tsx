@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import CustomerRequestTable from "./CustomerRequestTable";
 
@@ -9,7 +9,6 @@ import "primeflex/primeflex.css";
 import "primeicons/primeicons.css";
 
 import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dialog } from "primereact/dialog";
 import { Sidebar } from "primereact/sidebar";
@@ -27,6 +26,7 @@ interface RequestData {
   id: string;
   customerId: string;
   description: string;
+  img_url: string;
   quotePrice: number;
   finalPrice: number;
   status: string;
@@ -40,9 +40,13 @@ export default function CustomerDashboardClient() {
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showNewRequest, setShowNewRequest] = useState(false);
-  const [requestForm, setRequestForm] = useState({ description: "", img_url: "" });
+  const [requestForm, setRequestForm] = useState({ description: "" });
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_IMAGES = 3;
 
   const customerId = session?.user?.id;
 
@@ -73,13 +77,29 @@ export default function CustomerDashboardClient() {
     if (!customerId) return;
     setSubmitting(true);
     try {
+      let imgUrl = "";
+
+      // Upload images to MinIO if any were selected
+      if (imageFiles.length > 0) {
+        const formData = new FormData();
+        imageFiles.forEach((f) => formData.append("files", f));
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        if (uploadRes.ok) {
+          const { urls } = await uploadRes.json();
+          imgUrl = JSON.stringify(urls);
+        }
+      }
+
       const res = await fetch("/api/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId,
           description: requestForm.description,
-          img_url: requestForm.img_url || "",
+          img_url: imgUrl,
         }),
       });
       if (res.ok) {
@@ -87,11 +107,43 @@ export default function CustomerDashboardClient() {
         setRequests((prev) => [...prev, newReq]);
         setRequestRefreshKey((k) => k + 1);
         setShowNewRequest(false);
-        setRequestForm({ description: "", img_url: "" });
+        setRequestForm({ description: "" });
+        setImageFiles([]);
+        setImagePreviews([]);
       }
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
+    const combined = [...imageFiles, ...selected].slice(0, MAX_IMAGES);
+    setImageFiles(combined);
+
+    // Generate previews for all files
+    Promise.all(
+      combined.map(
+        (f) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(f);
+          }),
+      ),
+    ).then(setImagePreviews);
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeImage(index: number) {
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    setImageFiles(newFiles);
+    setImagePreviews(newPreviews);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   // Recent requests for dashboard (last 5)
@@ -409,16 +461,67 @@ export default function CustomerDashboardClient() {
             />
           </div>
           <div className="flex flex-column gap-2">
-            <label htmlFor="req-img" className="font-semibold text-sm" style={{ color: "#475569" }}>
-              Image URL <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
+            <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+              Attach Image <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
             </label>
-            <InputText
-              id="req-img"
-              value={requestForm.img_url}
-              onChange={(e) => setRequestForm((f) => ({ ...f, img_url: e.target.value }))}
-              className="w-full"
-              placeholder="https://example.com/image.jpg"
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: "none" }}
             />
+            {imagePreviews.length > 0 ? (
+              <div className="flex flex-column gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {imagePreviews.map((preview, idx) => (
+                    <div key={idx} style={{ position: "relative", display: "inline-block" }}>
+                      <img
+                        src={preview}
+                        alt={`Preview ${idx + 1}`}
+                        style={{ width: "7rem", height: "7rem", objectFit: "cover", borderRadius: "0.75rem", border: "1px solid #e2e8f0" }}
+                      />
+                      <Button
+                        icon="pi pi-times"
+                        rounded
+                        text
+                        severity="danger"
+                        size="small"
+                        type="button"
+                        style={{ position: "absolute", top: "-0.25rem", right: "-0.25rem", width: "1.5rem", height: "1.5rem" }}
+                        onClick={() => removeImage(idx)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {imageFiles.length < MAX_IMAGES && (
+                  <Button
+                    label={`Add more (${imageFiles.length}/${MAX_IMAGES})`}
+                    icon="pi pi-plus"
+                    text
+                    size="small"
+                    type="button"
+                    style={{ color: "#f97316", alignSelf: "flex-start" }}
+                    onClick={() => fileInputRef.current?.click()}
+                  />
+                )}
+              </div>
+            ) : (
+              <div
+                className="flex flex-column align-items-center justify-content-center gap-2 cursor-pointer border-round-lg"
+                style={{ border: "2px dashed #cbd5e1", padding: "2rem", backgroundColor: "#fafafa" }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <i className="pi pi-images" style={{ fontSize: "2rem", color: "#94a3b8" }} />
+                <span className="text-sm" style={{ color: "#64748b" }}>
+                  Click to upload images (up to 3)
+                </span>
+                <span className="text-xs" style={{ color: "#94a3b8" }}>
+                  JPEG, PNG, WebP, GIF — Max 5MB each
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex justify-content-end gap-2 mt-2">
             <Button label="Cancel" severity="secondary" outlined onClick={() => setShowNewRequest(false)} type="button" />
