@@ -8,6 +8,12 @@ const BUCKET = process.env.MINIO_BUCKET || "source-desk";
 const MAX_FILES = 3;
 
 export async function POST(req: NextRequest) {
+  console.log("Upload debug:", {
+    endpoint: process.env.MINIO_ENDPOINT,
+    bucket: BUCKET,
+    accessKey: process.env.MINIO_ACCESS_KEY ? `${process.env.MINIO_ACCESS_KEY.slice(0, 4)}...` : "MISSING",
+    secretKey: process.env.MINIO_SECRET_KEY ? "SET" : "MISSING",
+  });
   try {
     const formData = await req.formData();
     const files = formData.getAll("files") as File[];
