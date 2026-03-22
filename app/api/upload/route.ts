@@ -9,10 +9,12 @@ const MAX_FILES = 3;
 
 export async function POST(req: NextRequest) {
   console.log("Upload debug:", {
-    endpoint: process.env.MINIO_ENDPOINT,
+    endpoint: process.env.MINIO_ENDPOINT ?? "MISSING",
     bucket: BUCKET,
-    accessKey: process.env.MINIO_ACCESS_KEY ? `${process.env.MINIO_ACCESS_KEY.slice(0, 4)}...` : "MISSING",
-    secretKey: process.env.MINIO_SECRET_KEY ? "SET" : "MISSING",
+    MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY ?? "MISSING",
+    MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY ? "SET" : "MISSING",
+    MINIO_ROOT_USER: process.env.MINIO_ROOT_USER ?? "MISSING",
+    MINIO_ROOT_PASSWORD: process.env.MINIO_ROOT_PASSWORD ? "SET" : "MISSING",
   });
   try {
     const formData = await req.formData();
