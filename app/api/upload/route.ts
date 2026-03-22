@@ -8,14 +8,6 @@ const BUCKET = process.env.MINIO_BUCKET || "source-desk";
 const MAX_FILES = 3;
 
 export async function POST(req: NextRequest) {
-  console.log("Upload debug:", {
-    endpoint: process.env.MINIO_ENDPOINT ?? "MISSING",
-    bucket: BUCKET,
-    MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY ?? "MISSING",
-    MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY ? "SET" : "MISSING",
-    MINIO_ROOT_USER: process.env.MINIO_ROOT_USER ?? "MISSING",
-    MINIO_ROOT_PASSWORD: process.env.MINIO_ROOT_PASSWORD ? "SET" : "MISSING",
-  });
   try {
     const formData = await req.formData();
     const files = formData.getAll("files") as File[];
@@ -40,7 +32,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const endpoint = process.env.MINIO_ENDPOINT!.replace(/\/$/, "");
     const urls: string[] = [];
 
     for (const file of files) {
@@ -57,7 +48,7 @@ export async function POST(req: NextRequest) {
         }),
       );
 
-      urls.push(`${endpoint}/${BUCKET}/${key}`);
+      urls.push(`/api/image/${key}`);
     }
 
     return NextResponse.json({ urls }, { status: 201 });
