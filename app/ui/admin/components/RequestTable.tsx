@@ -1,14 +1,14 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { DataTable, DataTableRowEditCompleteEvent } from "primereact/datatable";
-import { Column, ColumnEditorOptions } from "primereact/column";
+import { DataView } from "primereact/dataview";
 import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
 import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
 import { Button } from "primereact/button";
+import { Dialog } from "primereact/dialog";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
-import { FilterMatchMode } from "primereact/api";
 import { IconField } from "primereact/iconfield";
 import { InputIcon } from "primereact/inputicon";
 
@@ -18,6 +18,7 @@ interface RequestData {
   name: string;
   quantity: number;
   description: string;
+  img_url: string;
   quotePrice: number;
   finalPrice: number;
   status: string;
@@ -27,26 +28,39 @@ interface RequestData {
 
 const statusOptions = [
   { label: "Pending", value: "PENDING" },
+  { label: "Quoted", value: "QUOTED" },
+  { label: "Approved", value: "APPROVED" },
   { label: "Purchased", value: "PURCHASED" },
   { label: "At Warehouse", value: "AT_WAREHOUSE" },
   { label: "Shipped", value: "SHIPPED" },
   { label: "Done", value: "DONE" },
 ];
 
-function getStatusSeverity(status: string) {
+const sortOptions = [
+  { label: "Newest First", value: "!createdAt" },
+  { label: "Oldest First", value: "createdAt" },
+  { label: "Name A-Z", value: "name" },
+  { label: "Name Z-A", value: "!name" },
+];
+
+function getStatusStyle(status: string): React.CSSProperties {
   switch (status) {
     case "PENDING":
-      return "warning";
+      return { backgroundColor: "#fef3c7", color: "#92400e" };
+    case "QUOTED":
+      return { backgroundColor: "#dbeafe", color: "#1e40af" };
+    case "APPROVED":
+      return { backgroundColor: "#dcfce7", color: "#166534" };
     case "PURCHASED":
-      return "info";
+      return { backgroundColor: "#f3e8ff", color: "#6b21a8" };
     case "AT_WAREHOUSE":
-      return "info";
+      return { backgroundColor: "#e0e7ff", color: "#3730a3" };
     case "SHIPPED":
-      return "contrast";
+      return { backgroundColor: "#ccfbf1", color: "#115e59" };
     case "DONE":
-      return "success";
+      return { backgroundColor: "#d1fae5", color: "#065f46" };
     default:
-      return undefined;
+      return {};
   }
 }
 
@@ -54,64 +68,122 @@ function formatStatusLabel(status: string) {
   return status.charAt(0) + status.slice(1).toLowerCase().replace("_", " ");
 }
 
+function parseImageUrls(imgUrl: string): string[] {
+  if (!imgUrl) return [];
+  try {
+    const parsed = JSON.parse(imgUrl);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    if (imgUrl.startsWith("http")) return [imgUrl];
+  }
+  return [];
+}
+
 export default function RequestTable() {
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [filters, setFilters] = useState({
-    global: { value: null as string | null, matchMode: FilterMatchMode.CONTAINS },
-  });
+  const [sortKey, setSortKey] = useState("!createdAt");
+  const [sortField, setSortField] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<0 | 1 | -1>(-1);
+
+  // Edit modal state
+  const [editDialogVisible, setEditDialogVisible] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<RequestData | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editQuantity, setEditQuantity] = useState(1);
+  const [editDescription, setEditDescription] = useState("");
+  const [editQuotePrice, setEditQuotePrice] = useState(0);
+  const [editFinalPrice, setEditFinalPrice] = useState(0);
+  const [editStatus, setEditStatus] = useState("PENDING");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/request")
-      .then((res) => res.json())
-      .then((data: RequestData[]) => {
-        setRequests(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const fetchRequests = () => {
+      fetch("/api/request", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data: RequestData[]) => {
+          setRequests(Array.isArray(data) ? data : []);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+    fetchRequests();
+    const interval = setInterval(fetchRequests, 10000);
+    return () => clearInterval(interval);
   }, []);
 
-  const displayedRequests = statusFilter === "ALL" ? requests : requests.filter((r) => r.status === statusFilter);
+  const filteredRequests = requests.filter((r) => {
+    if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
+    if (searchValue) {
+      const s = searchValue.toLowerCase();
+      return r.name.toLowerCase().includes(s) || r.description.toLowerCase().includes(s) || r.customerId.toLowerCase().includes(s);
+    }
+    return true;
+  });
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
-  };
-
-  const onStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-  };
-
-  const onRowEditComplete = async (e: DataTableRowEditCompleteEvent) => {
-    const { newData } = e;
-    const updated = newData as RequestData;
-
-    try {
-      const res = await fetch(`/api/request/${updated.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: updated.name,
-          quantity: updated.quantity,
-          quotePrice: updated.quotePrice,
-          finalPrice: updated.finalPrice,
-          status: updated.status,
-          description: updated.description,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update");
-
-      const saved = await res.json();
-      setRequests((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
-    } catch {
-      // revert — original data stays
+  const onSortChange = (value: string) => {
+    setSortKey(value);
+    if (value.startsWith("!")) {
+      setSortField(value.substring(1));
+      setSortOrder(-1);
+    } else {
+      setSortField(value);
+      setSortOrder(1);
     }
   };
 
+  // --- Edit modal logic ---
+  const openEditDialog = (request: RequestData) => {
+    setEditingRequest(request);
+    setEditName(request.name);
+    setEditQuantity(request.quantity);
+    setEditDescription(request.description);
+    setEditQuotePrice(request.quotePrice);
+    setEditFinalPrice(request.finalPrice);
+    setEditStatus(request.status);
+    setEditDialogVisible(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRequest) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/request/${editingRequest.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          quantity: editQuantity,
+          description: editDescription,
+          quotePrice: editQuotePrice,
+          finalPrice: editFinalPrice,
+          status: editStatus,
+        }),
+      });
+
+      if (res.ok) {
+        const saved = await res.json();
+        setRequests((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
+        setEditDialogVisible(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmSaveEdit = () => {
+    confirmDialog({
+      message: "Are you sure you want to save these changes?",
+      header: "Confirm Update",
+      icon: "pi pi-question-circle",
+      acceptClassName: "p-button-success",
+      accept: handleSaveEdit,
+    });
+  };
+
+  // --- Delete logic ---
   const deleteRequest = async (request: RequestData) => {
     try {
       const res = await fetch(`/api/request/${request.id}`, { method: "DELETE" });
@@ -124,7 +196,7 @@ export default function RequestTable() {
 
   const confirmDelete = (request: RequestData) => {
     confirmDialog({
-      message: `Are you sure you want to delete this request?`,
+      message: "Are you sure you want to delete this request?",
       header: "Confirm Delete",
       icon: "pi pi-exclamation-triangle",
       acceptClassName: "p-button-danger",
@@ -132,86 +204,136 @@ export default function RequestTable() {
     });
   };
 
-  // Editors
-  const priceEditor = (options: ColumnEditorOptions) => {
-    return (
-      <InputNumber
-        value={options.value}
-        onValueChange={(e) => options.editorCallback?.(e.value)}
-        mode="currency"
-        currency="USD"
-        locale="en-US"
-        className="w-full"
-      />
-    );
-  };
-
-  const descriptionEditor = (options: ColumnEditorOptions) => {
-    return <InputText type="text" value={options.value} onChange={(e) => options.editorCallback?.(e.target.value)} className="w-full" />;
-  };
-
-  const nameEditor = (options: ColumnEditorOptions) => {
-    return <InputText type="text" value={options.value} onChange={(e) => options.editorCallback?.(e.target.value)} className="w-full" />;
-  };
-
-  const quantityEditor = (options: ColumnEditorOptions) => {
-    return <InputNumber value={options.value} onValueChange={(e) => options.editorCallback?.(e.value)} min={1} showButtons className="w-full" />;
-  };
-
-  const statusEditor = (options: ColumnEditorOptions) => {
-    return (
-      <Dropdown
-        value={options.value}
-        options={statusOptions}
-        onChange={(e) => options.editorCallback?.(e.value)}
-        placeholder="Select Status"
-        className="w-full"
-      />
-    );
-  };
-
-  // Body templates
   const formatCurrency = (value: number) => {
     return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
   };
 
-  const quotePriceBodyTemplate = (rowData: RequestData) => {
-    return <span style={{ color: "#334155", fontWeight: 600 }}>{formatCurrency(rowData.quotePrice)}</span>;
-  };
-
-  const finalPriceBodyTemplate = (rowData: RequestData) => {
-    return (
-      <span style={{ color: rowData.finalPrice > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
-        {rowData.finalPrice > 0 ? formatCurrency(rowData.finalPrice) : "—"}
-      </span>
-    );
-  };
-
-  const statusBodyTemplate = (rowData: RequestData) => {
-    return <Tag value={formatStatusLabel(rowData.status)} severity={getStatusSeverity(rowData.status)} />;
-  };
-
-  const descriptionBodyTemplate = (rowData: RequestData) => {
-    return <span style={{ color: "#334155" }}>{rowData.description.length > 60 ? rowData.description.slice(0, 60) + "…" : rowData.description}</span>;
-  };
-
-  const dateBodyTemplate = (rowData: RequestData) => {
-    return (
-      <span style={{ color: "#64748b" }}>
-        {new Date(rowData.createdAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })}
-      </span>
-    );
-  };
-
-  const deleteBodyTemplate = (rowData: RequestData) => {
-    return <Button icon="pi pi-trash" rounded text severity="danger" onClick={() => confirmDelete(rowData)} />;
-  };
-
   const statusFilterOptions = [{ label: "All Statuses", value: "ALL" }, ...statusOptions];
+
+  const itemTemplate = (request: RequestData) => {
+    const urls = parseImageUrls(request.img_url);
+
+    return (
+      <div className="col-12 md:col-6 xl:col-4 p-2">
+        <div
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: "0.75rem",
+            overflow: "hidden",
+            backgroundColor: "#fff",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Image */}
+          {urls.length > 0 ? (
+            <div style={{ position: "relative" }}>
+              <img src={urls[0]} alt={request.name} style={{ width: "100%", height: "10rem", objectFit: "cover" }} />
+              {urls.length > 1 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    bottom: "0.5rem",
+                    right: "0.5rem",
+                    background: "rgba(0,0,0,0.6)",
+                    color: "#fff",
+                    borderRadius: "0.5rem",
+                    padding: "0.125rem 0.5rem",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  +{urls.length - 1}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "10rem",
+                backgroundColor: "#f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <i className="pi pi-image" style={{ fontSize: "2.5rem", color: "#cbd5e1" }} />
+            </div>
+          )}
+
+          {/* Details */}
+          <div className="flex flex-column gap-2 p-3" style={{ flex: 1 }}>
+            <div className="flex align-items-center justify-content-between gap-2">
+              <span
+                className="font-bold"
+                style={{ color: "#1e293b", fontSize: "1.05rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {request.name}
+              </span>
+              <Tag value={formatStatusLabel(request.status)} style={getStatusStyle(request.status)} />
+            </div>
+
+            <span className="text-sm" style={{ color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {request.description || "No description"}
+            </span>
+
+            <div className="flex align-items-center gap-3 flex-wrap" style={{ color: "#64748b", fontSize: "0.8rem" }}>
+              <span>
+                <i className="pi pi-box mr-1" style={{ fontSize: "0.75rem" }} />
+                Qty: {request.quantity}
+              </span>
+              <span>•</span>
+              <span>
+                <i className="pi pi-calendar mr-1" style={{ fontSize: "0.75rem" }} />
+                {new Date(request.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+              </span>
+              <span>•</span>
+              <span>
+                <i className="pi pi-user mr-1" style={{ fontSize: "0.75rem" }} />
+                {request.customerId.slice(0, 8)}…
+              </span>
+            </div>
+
+            <div className="flex align-items-center gap-4 mt-1">
+              <div className="flex flex-column">
+                <span style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>Quote</span>
+                <span style={{ color: "#334155", fontWeight: 600 }}>{formatCurrency(request.quotePrice)}</span>
+              </div>
+              <div className="flex flex-column">
+                <span style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>Final</span>
+                <span style={{ color: request.finalPrice > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
+                  {request.finalPrice > 0 ? formatCurrency(request.finalPrice) : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex align-items-center justify-content-end gap-1 mt-auto pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
+              <Button
+                icon="pi pi-pencil"
+                rounded
+                text
+                severity="info"
+                onClick={() => openEditDialog(request)}
+                tooltip="Edit"
+                tooltipOptions={{ position: "top" }}
+              />
+              <Button
+                icon="pi pi-trash"
+                rounded
+                text
+                severity="danger"
+                onClick={() => confirmDelete(request)}
+                tooltip="Delete"
+                tooltipOptions={{ position: "top" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const header = (
     <div className="flex justify-content-between align-items-center flex-wrap gap-2">
@@ -219,16 +341,17 @@ export default function RequestTable() {
         Customer Requests
       </span>
       <div className="flex align-items-center gap-2">
+        <Dropdown value={sortKey} options={sortOptions} onChange={(e) => onSortChange(e.value)} placeholder="Sort by" className="w-11rem" />
         <Dropdown
           value={statusFilter}
           options={statusFilterOptions}
-          onChange={(e) => onStatusFilterChange(e.value)}
+          onChange={(e) => setStatusFilter(e.value)}
           placeholder="Filter by status"
           className="w-12rem"
         />
         <IconField iconPosition="left">
           <InputIcon className="pi pi-search" />
-          <InputText value={globalFilterValue} onChange={onGlobalFilterChange} placeholder="Search requests..." />
+          <InputText value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search requests..." />
         </IconField>
       </div>
     </div>
@@ -237,47 +360,108 @@ export default function RequestTable() {
   return (
     <>
       <ConfirmDialog />
-      <DataTable
-        value={displayedRequests}
+      <DataView
+        value={filteredRequests}
+        itemTemplate={itemTemplate}
+        layout="grid"
         paginator
-        rows={10}
-        rowsPerPageOptions={[5, 10, 25]}
-        loading={loading}
-        filters={filters}
-        globalFilterFields={["name", "description", "status", "customerId"]}
+        rows={9}
+        rowsPerPageOptions={[9, 18, 36]}
+        sortField={sortField}
+        sortOrder={sortOrder}
         header={header}
+        loading={loading}
         emptyMessage="No requests found."
-        stripedRows
-        removableSort
-        editMode="row"
-        dataKey="id"
-        onRowEditComplete={onRowEditComplete}
+      />
+
+      {/* Edit Request Dialog */}
+      <Dialog
+        header="Edit Request"
+        visible={editDialogVisible}
+        onHide={() => setEditDialogVisible(false)}
+        style={{ width: "32rem" }}
+        modal
+        draggable={false}
         className="border-round-xl"
       >
-        <Column
-          field="name"
-          header="Name"
-          body={(rowData: RequestData) => <span style={{ color: "#334155" }}>{rowData.name}</span>}
-          editor={nameEditor}
-          sortable
-          style={{ minWidth: "10rem" }}
-        />
-        <Column field="quantity" header="Qty" editor={quantityEditor} sortable style={{ width: "6rem" }} />
-        <Column
-          field="description"
-          header="Description"
-          body={descriptionBodyTemplate}
-          editor={descriptionEditor}
-          sortable
-          style={{ maxWidth: "20rem" }}
-        />
-        <Column field="quotePrice" header="Quote Price" body={quotePriceBodyTemplate} editor={priceEditor} sortable />
-        <Column field="finalPrice" header="Final Price" body={finalPriceBodyTemplate} editor={priceEditor} sortable />
-        <Column field="status" header="Status" body={statusBodyTemplate} editor={statusEditor} sortable />
-        <Column field="createdAt" header="Created" body={dateBodyTemplate} sortable />
-        <Column rowEditor headerStyle={{ width: "7rem" }} bodyStyle={{ textAlign: "center" }} />
-        <Column body={deleteBodyTemplate} headerStyle={{ width: "4rem" }} bodyStyle={{ textAlign: "center" }} />
-      </DataTable>
+        {editingRequest && (
+          <div className="flex flex-column gap-4 pt-2">
+            <div className="flex flex-column gap-2">
+              <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+                Product Name
+              </label>
+              <InputText value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full" />
+            </div>
+
+            <div className="flex flex-column gap-2">
+              <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+                Quantity
+              </label>
+              <InputNumber value={editQuantity} onValueChange={(e) => setEditQuantity(e.value ?? 1)} min={1} showButtons className="w-full" />
+            </div>
+
+            <div className="flex flex-column gap-2">
+              <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+                Description
+              </label>
+              <InputTextarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="w-full" rows={3} autoResize />
+            </div>
+
+            <div className="flex gap-3">
+              <div className="flex flex-column gap-2 flex-1">
+                <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+                  Quote Price
+                </label>
+                <InputNumber
+                  value={editQuotePrice}
+                  onValueChange={(e) => setEditQuotePrice(e.value ?? 0)}
+                  mode="currency"
+                  currency="USD"
+                  locale="en-US"
+                  className="w-full"
+                />
+              </div>
+              <div className="flex flex-column gap-2 flex-1">
+                <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+                  Final Price
+                </label>
+                <InputNumber
+                  value={editFinalPrice}
+                  onValueChange={(e) => setEditFinalPrice(e.value ?? 0)}
+                  mode="currency"
+                  currency="USD"
+                  locale="en-US"
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-column gap-2">
+              <label className="font-semibold text-sm" style={{ color: "#475569" }}>
+                Status
+              </label>
+              <Dropdown
+                value={editStatus}
+                options={statusOptions}
+                onChange={(e) => setEditStatus(e.value)}
+                placeholder="Select Status"
+                className="w-full"
+              />
+            </div>
+
+            <div className="flex justify-content-end gap-2 mt-2">
+              <Button label="Cancel" severity="secondary" outlined onClick={() => setEditDialogVisible(false)} />
+              <Button
+                label="Save Changes"
+                icon="pi pi-check"
+                loading={saving}
+                style={{ backgroundColor: "#4338ca", borderColor: "#4338ca" }}
+                onClick={confirmSaveEdit}
+              />
+            </div>
+          </div>
+        )}
+      </Dialog>
     </>
   );
 }

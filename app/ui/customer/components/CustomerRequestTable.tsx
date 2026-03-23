@@ -1,12 +1,10 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
+import { DataView } from "primereact/dataview";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { InputNumber } from "primereact/inputnumber";
 import { Tag } from "primereact/tag";
-import { FilterMatchMode } from "primereact/api";
 import { IconField } from "primereact/iconfield";
 import { InputIcon } from "primereact/inputicon";
 import { Dropdown } from "primereact/dropdown";
@@ -30,31 +28,55 @@ interface RequestData {
 
 const statusOptions = [
   { label: "Pending", value: "PENDING" },
+  { label: "Quoted", value: "QUOTED" },
+  { label: "Approved", value: "APPROVED" },
   { label: "Purchased", value: "PURCHASED" },
   { label: "At Warehouse", value: "AT_WAREHOUSE" },
   { label: "Shipped", value: "SHIPPED" },
   { label: "Done", value: "DONE" },
 ];
 
-function getStatusSeverity(status: string) {
+const sortOptions = [
+  { label: "Newest First", value: "!createdAt" },
+  { label: "Oldest First", value: "createdAt" },
+  { label: "Name A-Z", value: "name" },
+  { label: "Name Z-A", value: "!name" },
+];
+
+function getStatusStyle(status: string): React.CSSProperties {
   switch (status) {
     case "PENDING":
-      return "warning";
+      return { backgroundColor: "#fef3c7", color: "#92400e" };
+    case "QUOTED":
+      return { backgroundColor: "#dbeafe", color: "#1e40af" };
+    case "APPROVED":
+      return { backgroundColor: "#dcfce7", color: "#166534" };
     case "PURCHASED":
-      return "info";
+      return { backgroundColor: "#f3e8ff", color: "#6b21a8" };
     case "AT_WAREHOUSE":
-      return "info";
+      return { backgroundColor: "#e0e7ff", color: "#3730a3" };
     case "SHIPPED":
-      return "contrast";
+      return { backgroundColor: "#ccfbf1", color: "#115e59" };
     case "DONE":
-      return "success";
+      return { backgroundColor: "#d1fae5", color: "#065f46" };
     default:
-      return undefined;
+      return {};
   }
 }
 
 function formatStatusLabel(status: string) {
   return status.charAt(0) + status.slice(1).toLowerCase().replace("_", " ");
+}
+
+function parseImageUrls(imgUrl: string): string[] {
+  if (!imgUrl) return [];
+  try {
+    const parsed = JSON.parse(imgUrl);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    if (imgUrl.startsWith("http")) return [imgUrl];
+  }
+  return [];
 }
 
 interface CustomerRequestTableProps {
@@ -66,11 +88,11 @@ interface CustomerRequestTableProps {
 export default function CustomerRequestTable({ refreshKey, customerId, onDelete }: CustomerRequestTableProps) {
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [filters, setFilters] = useState({
-    global: { value: null as string | null, matchMode: FilterMatchMode.CONTAINS },
-  });
+  const [sortKey, setSortKey] = useState("!createdAt");
+  const [sortField, setSortField] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<0 | 1 | -1>(-1);
 
   // Edit state
   const [editDialogVisible, setEditDialogVisible] = useState(false);
@@ -87,16 +109,39 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/request")
-      .then((res) => res.json())
-      .then((data: RequestData[]) => {
-        setRequests(data.filter((r) => r.customerId === customerId));
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const fetchRequests = () => {
+      fetch("/api/request", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data: RequestData[]) => {
+          setRequests(data.filter((r) => r.customerId === customerId));
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+    fetchRequests();
+    const interval = setInterval(fetchRequests, 10000);
+    return () => clearInterval(interval);
   }, [refreshKey, customerId]);
 
-  const displayedRequests = statusFilter === "ALL" ? requests : requests.filter((r) => r.status === statusFilter);
+  const filteredRequests = requests.filter((r) => {
+    if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
+    if (searchValue) {
+      const s = searchValue.toLowerCase();
+      return r.name.toLowerCase().includes(s) || r.description.toLowerCase().includes(s);
+    }
+    return true;
+  });
+
+  const onSortChange = (value: string) => {
+    setSortKey(value);
+    if (value.startsWith("!")) {
+      setSortField(value.substring(1));
+      setSortOrder(-1);
+    } else {
+      setSortField(value);
+      setSortOrder(1);
+    }
+  };
 
   const deleteRequest = async (request: RequestData) => {
     try {
@@ -117,10 +162,6 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
       acceptClassName: "p-button-danger",
       accept: () => deleteRequest(request),
     });
-  };
-
-  const deleteBodyTemplate = (rowData: RequestData) => {
-    return <Button icon="pi pi-trash" rounded text severity="danger" onClick={() => confirmDelete(rowData)} />;
   };
 
   // --- Edit logic ---
@@ -172,7 +213,6 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
     try {
       let finalUrls = [...existingImageUrls];
 
-      // Upload new images if any
       if (editImageFiles.length > 0) {
         const formData = new FormData();
         editImageFiles.forEach((f) => formData.append("files", f));
@@ -204,95 +244,177 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
     }
   };
 
+  const confirmSaveEdit = () => {
+    confirmDialog({
+      message: "Are you sure you want to save these changes?",
+      header: "Confirm Update",
+      icon: "pi pi-question-circle",
+      acceptClassName: "p-button-success",
+      accept: handleSaveEdit,
+    });
+  };
+
   const isEditable = (request: RequestData) => request.status === "PENDING";
 
-  const actionsBodyTemplate = (rowData: RequestData) => {
-    return (
-      <div className="flex align-items-center gap-1">
-        <Button
-          icon="pi pi-pencil"
-          rounded
-          text
-          severity="info"
-          onClick={() => openEditDialog(rowData)}
-          disabled={!isEditable(rowData)}
-          tooltip={!isEditable(rowData) ? "Cannot edit after purchase" : "Edit request"}
-          tooltipOptions={{ position: "top" }}
-        />
-        <Button icon="pi pi-trash" rounded text severity="danger" onClick={() => confirmDelete(rowData)} />
-      </div>
-    );
-  };
-
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
-  };
-
-  // Body templates
   const formatCurrency = (value: number) => {
     return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
   };
 
-  const parseImageUrls = (imgUrl: string): string[] => {
-    if (!imgUrl) return [];
+  const approvePrice = async (request: RequestData) => {
     try {
-      const parsed = JSON.parse(imgUrl);
-      if (Array.isArray(parsed)) return parsed;
+      const res = await fetch(`/api/request/${request.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "APPROVED" }),
+      });
+      if (!res.ok) throw new Error("Failed to approve");
+      const updated = await res.json();
+      setRequests((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     } catch {
-      // Legacy single URL format
-      if (imgUrl.startsWith("http")) return [imgUrl];
+      // silent fail
     }
-    return [];
   };
 
-  const imageBodyTemplate = (rowData: RequestData) => {
-    const urls = parseImageUrls(rowData.img_url);
-    if (!urls.length) return <span style={{ color: "#94a3b8" }}>—</span>;
-    return (
-      <div className="flex gap-1">
-        {urls.map((url, idx) => (
-          <img
-            key={idx}
-            src={url}
-            alt={`Request ${idx + 1}`}
-            style={{ width: "3rem", height: "3rem", objectFit: "cover", borderRadius: "0.5rem", border: "1px solid #e2e8f0" }}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const descriptionBodyTemplate = (rowData: RequestData) => {
-    return <span style={{ color: "#334155" }}>{rowData.description.length > 60 ? rowData.description.slice(0, 60) + "…" : rowData.description}</span>;
-  };
-
-  const statusBodyTemplate = (rowData: RequestData) => {
-    return <Tag value={formatStatusLabel(rowData.status)} severity={getStatusSeverity(rowData.status)} />;
-  };
-
-  const priceBodyTemplate = (rowData: RequestData) => {
-    return (
-      <span style={{ color: rowData.finalPrice > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
-        {rowData.finalPrice > 0 ? formatCurrency(rowData.finalPrice) : "—"}
-      </span>
-    );
-  };
-
-  const dateBodyTemplate = (rowData: RequestData) => {
-    return (
-      <span style={{ color: "#64748b" }}>
-        {new Date(rowData.createdAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })}
-      </span>
-    );
+  const confirmApprove = (request: RequestData) => {
+    confirmDialog({
+      message: `Approve the final price of ${formatCurrency(request.finalPrice)} for "${request.name}"?`,
+      header: "Approve Price",
+      icon: "pi pi-check-circle",
+      acceptClassName: "p-button-success",
+      accept: () => approvePrice(request),
+    });
   };
 
   const statusFilterOptions = [{ label: "All Statuses", value: "ALL" }, ...statusOptions];
+
+  const itemTemplate = (request: RequestData) => {
+    const urls = parseImageUrls(request.img_url);
+
+    return (
+      <div className="col-12 md:col-6 xl:col-4 p-2">
+        <div
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: "0.75rem",
+            overflow: "hidden",
+            backgroundColor: "#fff",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Image */}
+          {urls.length > 0 ? (
+            <div style={{ position: "relative" }}>
+              <img src={urls[0]} alt={request.name} style={{ width: "100%", height: "10rem", objectFit: "cover" }} />
+              {urls.length > 1 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    bottom: "0.5rem",
+                    right: "0.5rem",
+                    background: "rgba(0,0,0,0.6)",
+                    color: "#fff",
+                    borderRadius: "0.5rem",
+                    padding: "0.125rem 0.5rem",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  +{urls.length - 1}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "10rem",
+                backgroundColor: "#f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <i className="pi pi-image" style={{ fontSize: "2.5rem", color: "#cbd5e1" }} />
+            </div>
+          )}
+
+          {/* Details */}
+          <div className="flex flex-column gap-2 p-3" style={{ flex: 1 }}>
+            <div className="flex align-items-center justify-content-between gap-2">
+              <span
+                className="font-bold"
+                style={{ color: "#1e293b", fontSize: "1.05rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {request.name}
+              </span>
+              <Tag value={formatStatusLabel(request.status)} style={getStatusStyle(request.status)} />
+            </div>
+
+            <span className="text-sm" style={{ color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {request.description || "No description"}
+            </span>
+
+            <div className="flex align-items-center gap-3 flex-wrap" style={{ color: "#64748b", fontSize: "0.8rem" }}>
+              <span>
+                <i className="pi pi-box mr-1" style={{ fontSize: "0.75rem" }} />
+                Qty: {request.quantity}
+              </span>
+              <span>•</span>
+              <span>
+                <i className="pi pi-calendar mr-1" style={{ fontSize: "0.75rem" }} />
+                {new Date(request.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+              </span>
+            </div>
+
+            <div className="flex align-items-center gap-4 mt-1">
+              <div className="flex flex-column">
+                <span style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>Price</span>
+                <span style={{ color: request.finalPrice > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
+                  {request.finalPrice > 0 ? formatCurrency(request.finalPrice) : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex align-items-center justify-content-end gap-1 mt-auto pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
+              {request.status === "QUOTED" && (
+                <Button
+                  icon="pi pi-check"
+                  rounded
+                  text
+                  severity="success"
+                  onClick={() => confirmApprove(request)}
+                  tooltip="Approve final price"
+                  tooltipOptions={{ position: "top" }}
+                />
+              )}
+              <Button
+                icon="pi pi-pencil"
+                rounded
+                text
+                severity="info"
+                onClick={() => openEditDialog(request)}
+                disabled={!isEditable(request)}
+                tooltip={!isEditable(request) ? "Cannot edit after quoting" : "Edit request"}
+                tooltipOptions={{ position: "top" }}
+              />
+              <Button
+                icon="pi pi-trash"
+                rounded
+                text
+                severity="danger"
+                onClick={() => confirmDelete(request)}
+                disabled={!isEditable(request)}
+                tooltip={!isEditable(request) ? "Cannot delete after quoting" : "Delete request"}
+                tooltipOptions={{ position: "top" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const header = (
     <div className="flex justify-content-between align-items-center flex-wrap gap-2">
@@ -300,6 +422,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
         My Requests
       </span>
       <div className="flex align-items-center gap-2">
+        <Dropdown value={sortKey} options={sortOptions} onChange={(e) => onSortChange(e.value)} placeholder="Sort by" className="w-11rem" />
         <Dropdown
           value={statusFilter}
           options={statusFilterOptions}
@@ -309,7 +432,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
         />
         <IconField iconPosition="left">
           <InputIcon className="pi pi-search" />
-          <InputText value={globalFilterValue} onChange={onGlobalFilterChange} placeholder="Search requests..." />
+          <InputText value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search requests..." />
         </IconField>
       </div>
     </div>
@@ -318,30 +441,19 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
   return (
     <>
       <ConfirmDialog />
-      <DataTable
-        value={displayedRequests}
+      <DataView
+        value={filteredRequests}
+        itemTemplate={itemTemplate}
+        layout="grid"
         paginator
-        rows={10}
-        rowsPerPageOptions={[5, 10, 25]}
-        loading={loading}
-        filters={filters}
-        globalFilterFields={["name", "description", "status"]}
+        rows={9}
+        rowsPerPageOptions={[9, 18, 36]}
+        sortField={sortField}
+        sortOrder={sortOrder}
         header={header}
+        loading={loading}
         emptyMessage="No requests found."
-        stripedRows
-        removableSort
-        dataKey="id"
-        className="border-round-xl"
-      >
-        <Column header="Image" body={imageBodyTemplate} style={{ width: "5rem" }} />
-        <Column field="name" header="Name" sortable style={{ minWidth: "10rem" }} />
-        <Column field="quantity" header="Qty" sortable style={{ width: "5rem" }} />
-        <Column field="description" header="Description" body={descriptionBodyTemplate} sortable style={{ maxWidth: "20rem" }} />
-        <Column field="status" header="Status" body={statusBodyTemplate} sortable style={{ width: "10rem" }} />
-        <Column field="finalPrice" header="Price" body={priceBodyTemplate} sortable />
-        <Column field="createdAt" header="Submitted" body={dateBodyTemplate} sortable />
-        <Column header="Actions" body={actionsBodyTemplate} headerStyle={{ width: "6rem" }} bodyStyle={{ textAlign: "center" }} />
-      </DataTable>
+      />
 
       {/* Edit Request Dialog */}
       <Dialog
@@ -392,7 +504,6 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
                 style={{ display: "none" }}
               />
 
-              {/* Existing images */}
               {existingImageUrls.length > 0 || editImagePreviews.length > 0 ? (
                 <div className="flex flex-column gap-2">
                   <div className="flex flex-wrap gap-2">
@@ -468,7 +579,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
                 icon="pi pi-check"
                 loading={saving}
                 style={{ backgroundColor: "#f97316", borderColor: "#f97316" }}
-                onClick={handleSaveEdit}
+                onClick={confirmSaveEdit}
               />
             </div>
           </div>

@@ -38,12 +38,17 @@ export default function EmployeeDashboardClient() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/request")
-      .then((res) => res.json())
-      .then((data: RequestData[]) => {
-        setRequests(Array.isArray(data) ? data : []);
-      })
-      .finally(() => setDashboardLoading(false));
+    const fetchRequests = () => {
+      fetch("/api/request", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data: RequestData[]) => {
+          setRequests(Array.isArray(data) ? data : []);
+        })
+        .finally(() => setDashboardLoading(false));
+    };
+    fetchRequests();
+    const interval = setInterval(fetchRequests, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
@@ -119,9 +124,12 @@ export default function EmployeeDashboardClient() {
   );
 
   return (
-    <div className="flex min-h-screen surface-ground">
+    <div className="flex min-h-screen" style={{ backgroundColor: "#f1f5f9" }}>
       {/* Desktop Sidebar */}
-      <div className="hidden md:block surface-card shadow-2 fixed left-0 top-0 h-screen overflow-y-auto z-5" style={{ width: "260px" }}>
+      <div
+        className="hidden md:block shadow-2 fixed left-0 top-0 h-screen overflow-y-auto z-5"
+        style={{ width: "260px", backgroundColor: "#ffffff" }}
+      >
         {sidebarContent}
       </div>
 
@@ -131,7 +139,7 @@ export default function EmployeeDashboardClient() {
       </Sidebar>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-column min-h-screen employee-main" style={{ marginLeft: 0 }}>
+      <div className="flex-1 flex flex-column min-h-screen employee-main" style={{ marginLeft: 0, minWidth: 0 }}>
         <style>{`@media (min-width: 768px) { .employee-main { margin-left: 260px !important; } }`}</style>
         {/* Header */}
         <div className="shadow-2 px-4 py-3 flex align-items-center justify-content-between sticky top-0 z-4" style={{ backgroundColor: "#ffffff" }}>
@@ -190,7 +198,7 @@ export default function EmployeeDashboardClient() {
           )}
 
           {activeRoute === "requests" && (
-            <div className="surface-card border-round-xl shadow-2 p-4">
+            <div className="surface-card border-round-xl shadow-2 p-4" style={{ overflow: "auto" }}>
               <EmployeeRequestTable />
             </div>
           )}

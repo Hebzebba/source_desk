@@ -6,7 +6,7 @@ import type { Session } from "next-auth";
 import bcrypt from "bcrypt";
 import prisma from "@/lib/prisma";
 
-const normalizeRole = (role?: string) => {
+const normalizeRole = (role?: string) => { 
   const r = String(role ?? "customer").toLowerCase();
   if (["admin", "employee", "customer"].includes(r))
     return r as "admin" | "employee" | "customer";

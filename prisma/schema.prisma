@@ -48,6 +48,8 @@ enum Role {
 
 enum Status {
   PENDING
+  QUOTED
+  APPROVED
   PURCHASED
   AT_WAREHOUSE
   SHIPPED

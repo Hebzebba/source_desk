@@ -21,11 +21,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Check if request exists
     const existingRequest = await prisma.request.findUnique({
       where: { id },
-      select: { id: true, img_url: true },
+      select: { id: true, img_url: true, status: true },
     });
 
     if (!existingRequest) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    }
+
+    // Validate status transitions
+    if (status !== undefined && status !== existingRequest.status) {
+      const validTransitions: Record<string, string[]> = {
+        PENDING: ["QUOTED"],
+        QUOTED: ["PENDING", "APPROVED"],
+        APPROVED: ["PURCHASED"],
+        PURCHASED: ["AT_WAREHOUSE"],
+        AT_WAREHOUSE: ["SHIPPED"],
+        SHIPPED: ["DONE"],
+      };
+      const allowed = validTransitions[existingRequest.status] || [];
+      if (!allowed.includes(status)) {
+        return NextResponse.json({ error: `Cannot change status from ${existingRequest.status} to ${status}` }, { status: 400 });
+      }
     }
 
     // If images are being replaced, delete old ones from MinIO
@@ -58,6 +74,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (quotePrice !== undefined) updateData.quotePrice = quotePrice;
     if (finalPrice !== undefined) updateData.finalPrice = finalPrice;
     if (status !== undefined) updateData.status = status;
+
+    // Auto-set status to QUOTED when final price is set on a PENDING request
+    if (finalPrice !== undefined && finalPrice > 0 && existingRequest.status === "PENDING") {
+      updateData.status = "QUOTED";
+    }
 
     const request = await prisma.request.update({
       where: { id },

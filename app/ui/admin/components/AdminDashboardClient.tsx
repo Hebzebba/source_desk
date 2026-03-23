@@ -67,12 +67,20 @@ export default function AdminDashboardClient() {
   const [employeeRefreshKey, setEmployeeRefreshKey] = useState(0);
 
   useEffect(() => {
-    Promise.all([fetch("/api/user").then((res) => res.json()), fetch("/api/request").then((res) => res.json())])
-      .then(([userData, requestData]) => {
-        setUsers(Array.isArray(userData) ? userData : []);
-        setRequests(Array.isArray(requestData) ? requestData : []);
-      })
-      .finally(() => setDashboardLoading(false));
+    const fetchData = () => {
+      Promise.all([
+        fetch("/api/user", { cache: "no-store" }).then((res) => res.json()),
+        fetch("/api/request", { cache: "no-store" }).then((res) => res.json()),
+      ])
+        .then(([userData, requestData]) => {
+          setUsers(Array.isArray(userData) ? userData : []);
+          setRequests(Array.isArray(requestData) ? requestData : []);
+        })
+        .finally(() => setDashboardLoading(false));
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Build employee chart: employees created per month (last 6 months)
@@ -226,9 +234,12 @@ export default function AdminDashboardClient() {
   );
 
   return (
-    <div className="flex min-h-screen surface-ground">
+    <div className="flex min-h-screen" style={{ backgroundColor: "#f1f5f9" }}>
       {/* Desktop Sidebar */}
-      <div className="hidden md:block surface-card shadow-2 fixed left-0 top-0 h-screen overflow-y-auto z-5" style={{ width: "260px" }}>
+      <div
+        className="hidden md:block shadow-2 fixed left-0 top-0 h-screen overflow-y-auto z-5"
+        style={{ width: "260px", backgroundColor: "#ffffff" }}
+      >
         {sidebarContent}
       </div>
 
@@ -238,7 +249,7 @@ export default function AdminDashboardClient() {
       </Sidebar>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-column min-h-screen admin-main" style={{ marginLeft: 0 }}>
+      <div className="flex-1 flex flex-column min-h-screen admin-main" style={{ marginLeft: 0, minWidth: 0 }}>
         <style>{`@media (min-width: 768px) { .admin-main { margin-left: 260px !important; } }`}</style>
         {/* Header */}
         <div className="shadow-2 px-4 py-3 flex align-items-center justify-content-between sticky top-0 z-4" style={{ backgroundColor: "#ffffff" }}>
@@ -327,13 +338,13 @@ export default function AdminDashboardClient() {
           )}
 
           {activeRoute === "users" && (
-            <div className="surface-card border-round-xl shadow-2 p-4">
+            <div className="surface-card border-round-xl shadow-2 p-4" style={{ overflow: "auto" }}>
               <EmployeeTable refreshKey={employeeRefreshKey} />
             </div>
           )}
 
           {activeRoute === "requests" && (
-            <div className="surface-card border-round-xl shadow-2 p-4">
+            <div className="surface-card border-round-xl shadow-2 p-4" style={{ overflow: "auto" }}>
               <RequestTable />
             </div>
           )}

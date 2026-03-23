@@ -37,13 +37,18 @@ export default function EmployeeTable({ refreshKey }: { refreshKey?: number }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/user")
-      .then((res) => res.json())
-      .then((data: Employee[]) => {
-        setEmployees(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const fetchUsers = () => {
+      fetch("/api/user", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data: Employee[]) => {
+          setEmployees(Array.isArray(data) ? data : []);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+    fetchUsers();
+    const interval = setInterval(fetchUsers, 10000);
+    return () => clearInterval(interval);
   }, [refreshKey]);
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,16 +189,19 @@ export default function EmployeeTable({ refreshKey }: { refreshKey?: number }) {
         editMode="row"
         dataKey="id"
         onRowEditComplete={onRowEditComplete}
+        scrollable
+        scrollHeight="flex"
+        tableStyle={{ minWidth: "60rem" }}
         className="border-round-xl"
       >
-        <Column header="Name" body={nameBodyTemplate} sortable sortField="firstName" />
+        <Column header="Name" body={nameBodyTemplate} sortable sortField="firstName" style={{ minWidth: "10rem" }} />
         <Column field="firstName" header="First Name" editor={textEditor} sortable style={{ display: "none" }} />
         <Column field="lastName" header="Last Name" editor={textEditor} sortable style={{ display: "none" }} />
-        <Column field="email" header="Email" body={emailBodyTemplate} editor={textEditor} sortable />
-        <Column field="role" header="Role" body={roleBodyTemplate} editor={roleEditor} sortable />
-        <Column field="createdAt" header="Joined" body={dateBodyTemplate} sortable />
-        <Column rowEditor headerStyle={{ width: "7rem" }} bodyStyle={{ textAlign: "center" }} />
-        <Column body={deleteBodyTemplate} headerStyle={{ width: "4rem" }} bodyStyle={{ textAlign: "center" }} />
+        <Column field="email" header="Email" body={emailBodyTemplate} editor={textEditor} sortable style={{ minWidth: "12rem" }} />
+        <Column field="role" header="Role" body={roleBodyTemplate} editor={roleEditor} sortable style={{ minWidth: "8rem" }} />
+        <Column field="createdAt" header="Joined" body={dateBodyTemplate} sortable style={{ minWidth: "10rem" }} />
+        <Column rowEditor frozen alignFrozen="right" headerStyle={{ width: "5rem" }} bodyStyle={{ textAlign: "center" }} />
+        <Column body={deleteBodyTemplate} frozen alignFrozen="right" headerStyle={{ width: "3rem" }} bodyStyle={{ textAlign: "center" }} />
       </DataTable>
     </>
   );
