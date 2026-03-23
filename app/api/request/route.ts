@@ -7,6 +7,8 @@ export async function GET() {
       select: {
         id: true,
         customerId: true,
+        name: true,
+        quantity: true,
         description: true,
         img_url: true,
         quotePrice: true,
@@ -18,6 +20,7 @@ export async function GET() {
     });
     return NextResponse.json(requests);
   } catch (error) {
+    console.error("Request fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch customer requests" }, { status: 500 });
   }
 }
@@ -25,16 +28,18 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customerId, description, img_url, quotePrice, finalPrice, status } = body;
+    const { customerId, name, quantity, description, img_url, quotePrice, finalPrice, status } = body;
     // Validation
-    if (!description) {
+    if (!name) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const request = await prisma.request.create({
       data: {
         customerId,
-        description,
+        name,
+        quantity: quantity || 1,
+        description: description || "",
         img_url: img_url || "",
         quotePrice: quotePrice || 0.0,
         finalPrice: finalPrice || 0.0,

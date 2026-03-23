@@ -28,7 +28,7 @@ const Bar = dynamic(() => import("react-chartjs-2").then((mod) => mod.Bar), {
 
 const SIDEBAR_LINKS = [
   { key: "dashboard", label: "Dashboard", icon: "pi pi-chart-bar", iconColor: "#6366f1" },
-  { key: "employees", label: "Employees", icon: "pi pi-users", iconColor: "#14b8a6" },
+  { key: "users", label: "Users", icon: "pi pi-users", iconColor: "#14b8a6" },
   { key: "requests", label: "Requests", icon: "pi pi-clipboard", iconColor: "#f59e0b" },
 ];
 
@@ -69,8 +69,8 @@ export default function AdminDashboardClient() {
   useEffect(() => {
     Promise.all([fetch("/api/user").then((res) => res.json()), fetch("/api/request").then((res) => res.json())])
       .then(([userData, requestData]) => {
-        setUsers(userData);
-        setRequests(requestData);
+        setUsers(Array.isArray(userData) ? userData : []);
+        setRequests(Array.isArray(requestData) ? requestData : []);
       })
       .finally(() => setDashboardLoading(false));
   }, []);
@@ -251,8 +251,8 @@ export default function AdminDashboardClient() {
               <div className="text-sm" style={{ color: "#94a3b8" }}>
                 {activeRoute === "dashboard"
                   ? "Project overview & management"
-                  : activeRoute === "employees"
-                    ? "Manage your team"
+                  : activeRoute === "users"
+                    ? "Manage your users"
                     : "View and update customer requests"}
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function AdminDashboardClient() {
               className="hidden md:flex"
               style={{ backgroundColor: "#6366f1", color: "#fff" }}
             />
-            {activeRoute === "employees" && <Button label="New Employee" icon="pi pi-user-plus" size="small" onClick={() => setShowModal(true)} />}
+            {activeRoute === "users" && <Button label="New User" icon="pi pi-user-plus" size="small" onClick={() => setShowModal(true)} />}
           </div>
         </div>
 
@@ -315,7 +315,7 @@ export default function AdminDashboardClient() {
                   <div className="surface-card border-round-xl shadow-2 p-4 h-full">
                     <div className="flex align-items-center justify-content-between mb-3">
                       <span className="font-semibold" style={{ color: "#334155" }}>
-                        Employees Added
+                        Users Added
                       </span>
                       <i className="pi pi-ellipsis-h cursor-pointer" style={{ color: "#cbd5e1" }} />
                     </div>
@@ -326,7 +326,7 @@ export default function AdminDashboardClient() {
             </div>
           )}
 
-          {activeRoute === "employees" && (
+          {activeRoute === "users" && (
             <div className="surface-card border-round-xl shadow-2 p-4">
               <EmployeeTable refreshKey={employeeRefreshKey} />
             </div>
@@ -342,7 +342,7 @@ export default function AdminDashboardClient() {
 
       {/* Add Employee Modal */}
       <Dialog
-        header="Add Employee"
+        header="Add User"
         visible={showModal}
         onHide={() => setShowModal(false)}
         style={{ width: "28rem" }}
@@ -407,7 +407,7 @@ export default function AdminDashboardClient() {
           </div>
           <div className="flex justify-content-end gap-2 mt-2">
             <Button label="Cancel" severity="secondary" outlined onClick={() => setShowModal(false)} type="button" />
-            <Button label="Add Employee" icon="pi pi-check" type="submit" />
+            <Button label="Add User" icon="pi pi-check" type="submit" />
           </div>
         </form>
       </Dialog>

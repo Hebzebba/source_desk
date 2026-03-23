@@ -41,7 +41,7 @@ export default function EmployeeDashboardClient() {
     fetch("/api/request")
       .then((res) => res.json())
       .then((data: RequestData[]) => {
-        setRequests(data);
+        setRequests(Array.isArray(data) ? data : []);
       })
       .finally(() => setDashboardLoading(false));
   }, []);

@@ -9,6 +9,8 @@ import "primeflex/primeflex.css";
 import "primeicons/primeicons.css";
 
 import { Button } from "primereact/button";
+import { InputText } from "primereact/inputtext";
+import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dialog } from "primereact/dialog";
 import { Sidebar } from "primereact/sidebar";
@@ -25,6 +27,8 @@ const SIDEBAR_LINKS = [
 interface RequestData {
   id: string;
   customerId: string;
+  name: string;
+  quantity: number;
   description: string;
   img_url: string;
   quotePrice: number;
@@ -40,7 +44,7 @@ export default function CustomerDashboardClient() {
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showNewRequest, setShowNewRequest] = useState(false);
-  const [requestForm, setRequestForm] = useState({ description: "" });
+  const [requestForm, setRequestForm] = useState({ name: "", quantity: 1, description: "" });
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -98,6 +102,8 @@ export default function CustomerDashboardClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId,
+          name: requestForm.name,
+          quantity: requestForm.quantity,
           description: requestForm.description,
           img_url: imgUrl,
         }),
@@ -107,7 +113,7 @@ export default function CustomerDashboardClient() {
         setRequests((prev) => [...prev, newReq]);
         setRequestRefreshKey((k) => k + 1);
         setShowNewRequest(false);
-        setRequestForm({ description: "" });
+        setRequestForm({ name: "", quantity: 1, description: "" });
         setImageFiles([]);
         setImagePreviews([]);
       }
@@ -368,7 +374,7 @@ export default function CustomerDashboardClient() {
                             className="font-medium text-sm"
                             style={{ color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                           >
-                            {req.description}
+                            {req.name || req.description}
                           </div>
                           <div className="text-xs mt-1" style={{ color: "#94a3b8" }}>
                             {new Date(req.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -446,12 +452,37 @@ export default function CustomerDashboardClient() {
       >
         <form onSubmit={handleSubmitRequest} className="flex flex-column gap-4 pt-2">
           <div className="flex flex-column gap-2">
+            <label htmlFor="req-name" className="font-semibold text-sm" style={{ color: "#475569" }}>
+              Product Name
+            </label>
+            <InputText
+              id="req-name"
+              required
+              value={requestForm.name}
+              onChange={(e) => setRequestForm((f) => ({ ...f, name: e.target.value }))}
+              className="w-full"
+              placeholder="e.g. Nike Air Max 90"
+            />
+          </div>
+          <div className="flex flex-column gap-2">
+            <label htmlFor="req-qty" className="font-semibold text-sm" style={{ color: "#475569" }}>
+              Quantity
+            </label>
+            <InputNumber
+              id="req-qty"
+              value={requestForm.quantity}
+              onValueChange={(e) => setRequestForm((f) => ({ ...f, quantity: e.value ?? 1 }))}
+              min={1}
+              showButtons
+              className="w-full"
+            />
+          </div>
+          <div className="flex flex-column gap-2">
             <label htmlFor="req-desc" className="font-semibold text-sm" style={{ color: "#475569" }}>
-              What are you looking for?
+              Description <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
             </label>
             <InputTextarea
               id="req-desc"
-              required
               value={requestForm.description}
               onChange={(e) => setRequestForm((f) => ({ ...f, description: e.target.value }))}
               className="w-full"

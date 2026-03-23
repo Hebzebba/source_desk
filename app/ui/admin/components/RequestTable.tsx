@@ -15,6 +15,8 @@ import { InputIcon } from "primereact/inputicon";
 interface RequestData {
   id: string;
   customerId: string;
+  name: string;
+  quantity: number;
   description: string;
   quotePrice: number;
   finalPrice: number;
@@ -56,7 +58,7 @@ export default function RequestTable() {
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
-  const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [filters, setFilters] = useState({
     global: { value: null as string | null, matchMode: FilterMatchMode.CONTAINS },
   });
@@ -65,7 +67,7 @@ export default function RequestTable() {
     fetch("/api/request")
       .then((res) => res.json())
       .then((data: RequestData[]) => {
-        setRequests(data);
+        setRequests(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -92,6 +94,8 @@ export default function RequestTable() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: updated.name,
+          quantity: updated.quantity,
           quotePrice: updated.quotePrice,
           finalPrice: updated.finalPrice,
           status: updated.status,
@@ -144,6 +148,14 @@ export default function RequestTable() {
 
   const descriptionEditor = (options: ColumnEditorOptions) => {
     return <InputText type="text" value={options.value} onChange={(e) => options.editorCallback?.(e.target.value)} className="w-full" />;
+  };
+
+  const nameEditor = (options: ColumnEditorOptions) => {
+    return <InputText type="text" value={options.value} onChange={(e) => options.editorCallback?.(e.target.value)} className="w-full" />;
+  };
+
+  const quantityEditor = (options: ColumnEditorOptions) => {
+    return <InputNumber value={options.value} onValueChange={(e) => options.editorCallback?.(e.value)} min={1} showButtons className="w-full" />;
   };
 
   const statusEditor = (options: ColumnEditorOptions) => {
@@ -232,7 +244,7 @@ export default function RequestTable() {
         rowsPerPageOptions={[5, 10, 25]}
         loading={loading}
         filters={filters}
-        globalFilterFields={["description", "status", "customerId"]}
+        globalFilterFields={["name", "description", "status", "customerId"]}
         header={header}
         emptyMessage="No requests found."
         stripedRows
@@ -242,6 +254,15 @@ export default function RequestTable() {
         onRowEditComplete={onRowEditComplete}
         className="border-round-xl"
       >
+        <Column
+          field="name"
+          header="Name"
+          body={(rowData: RequestData) => <span style={{ color: "#334155" }}>{rowData.name}</span>}
+          editor={nameEditor}
+          sortable
+          style={{ minWidth: "10rem" }}
+        />
+        <Column field="quantity" header="Qty" editor={quantityEditor} sortable style={{ width: "6rem" }} />
         <Column
           field="description"
           header="Description"

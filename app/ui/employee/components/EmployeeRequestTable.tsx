@@ -11,6 +11,8 @@ import { InputIcon } from "primereact/inputicon";
 interface RequestData {
   id: string;
   customerId: string;
+  name: string;
+  quantity: number;
   description: string;
   quotePrice: number;
   finalPrice: number;
@@ -31,7 +33,7 @@ export default function EmployeeRequestTable() {
     fetch("/api/request")
       .then((res) => res.json())
       .then((data: RequestData[]) => {
-        setRequests(data);
+        setRequests(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -126,7 +128,7 @@ export default function EmployeeRequestTable() {
       rowsPerPageOptions={[5, 10, 25]}
       loading={loading}
       filters={filters}
-      globalFilterFields={["description", "status", "customerId"]}
+      globalFilterFields={["name", "description", "status", "customerId"]}
       header={header}
       emptyMessage="No requests found."
       stripedRows
@@ -136,6 +138,8 @@ export default function EmployeeRequestTable() {
       onRowEditComplete={onRowEditComplete}
       className="border-round-xl"
     >
+      <Column field="name" header="Name" sortable style={{ minWidth: "10rem" }} />
+      <Column field="quantity" header="Qty" sortable style={{ width: "5rem" }} />
       <Column field="description" header="Description" body={descriptionBodyTemplate} sortable style={{ maxWidth: "20rem" }} />
       <Column field="quotePrice" header="Quote Price" body={quotePriceBodyTemplate} editor={priceEditor} sortable />
       <Column field="createdAt" header="Created" body={dateBodyTemplate} sortable />

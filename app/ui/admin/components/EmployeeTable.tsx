@@ -40,7 +40,7 @@ export default function EmployeeTable({ refreshKey }: { refreshKey?: number }) {
     fetch("/api/user")
       .then((res) => res.json())
       .then((data: Employee[]) => {
-        setEmployees(data);
+        setEmployees(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -157,11 +157,11 @@ export default function EmployeeTable({ refreshKey }: { refreshKey?: number }) {
   const header = (
     <div className="flex justify-content-between align-items-center">
       <span className="font-semibold text-lg" style={{ color: "#4338ca" }}>
-        Employees
+        Users
       </span>
       <IconField iconPosition="left">
         <InputIcon className="pi pi-search" />
-        <InputText value={globalFilterValue} onChange={onGlobalFilterChange} placeholder="Search employees..." />
+        <InputText value={globalFilterValue} onChange={onGlobalFilterChange} placeholder="Search users..." />
       </IconField>
     </div>
   );
@@ -178,7 +178,7 @@ export default function EmployeeTable({ refreshKey }: { refreshKey?: number }) {
         filters={filters}
         globalFilterFields={["firstName", "lastName", "email", "role"]}
         header={header}
-        emptyMessage="No employees found."
+        emptyMessage="No users found."
         stripedRows
         removableSort
         editMode="row"

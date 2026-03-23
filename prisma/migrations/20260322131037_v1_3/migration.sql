@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Request" ADD COLUMN     "name" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "quantity" INTEGER NOT NULL DEFAULT 1;

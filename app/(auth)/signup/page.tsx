@@ -1,10 +1,25 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useActionState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { ProgressSpinner } from "primereact/progressspinner";
 import toast, { Toaster } from "react-hot-toast";
 import { signup, SignupErrors } from "../../action/auth";
 
 export default function SignupForm() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role) {
+      const role = session.user.role;
+      if (role === "admin") router.replace("/ui/admin");
+      else if (role === "employee") router.replace("/ui/employee");
+      else router.replace("/ui/customer");
+    }
+  }, [status, session, router]);
+
   const [values, setValues] = useState({
     firstName: "",
     lastName: "",
@@ -29,30 +44,29 @@ export default function SignupForm() {
     }
   }, [state?.success]);
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => setValues((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  if (status === "loading" || status === "authenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-gray-50 to-slate-200">
+        <ProgressSpinner style={{ width: "50px", height: "50px" }} strokeWidth="4" />
+      </div>
+    );
+  }
 
   return (
     <>
       <Toaster position="top-right" />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-gray-50 to-slate-200 px-4">
-        <form
-          action={action}
-          className="w-full max-w-md rounded-2xl bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl p-8 space-y-6"
-        >
+        <form action={action} className="w-full max-w-md rounded-2xl bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl p-8 space-y-6">
           <div className="space-y-1 text-center">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              Create your account
-            </h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Create your account</h2>
             <p className="text-sm text-gray-500">Start your journey with us</p>
           </div>
 
           {/* First Name */}
           <div className="space-y-1">
-            <label
-              htmlFor="firstName"
-              className="text-xs font-medium text-gray-600"
-            >
+            <label htmlFor="firstName" className="text-xs font-medium text-gray-600">
               First Name
             </label>
 
@@ -74,10 +88,7 @@ export default function SignupForm() {
 
           {/* Last Name */}
           <div className="space-y-1">
-            <label
-              htmlFor="lastName"
-              className="text-xs font-medium text-gray-600"
-            >
+            <label htmlFor="lastName" className="text-xs font-medium text-gray-600">
               Last Name
             </label>
 
@@ -99,10 +110,7 @@ export default function SignupForm() {
 
           {/* Email */}
           <div className="space-y-1">
-            <label
-              htmlFor="email"
-              className="text-xs font-medium text-gray-600"
-            >
+            <label htmlFor="email" className="text-xs font-medium text-gray-600">
               Email
             </label>
 
@@ -124,10 +132,7 @@ export default function SignupForm() {
 
           {/* Password */}
           <div className="space-y-1">
-            <label
-              htmlFor="password"
-              className="text-xs font-medium text-gray-600"
-            >
+            <label htmlFor="password" className="text-xs font-medium text-gray-600">
               Password
             </label>
 
@@ -159,10 +164,7 @@ export default function SignupForm() {
           {/* Link */}
           <div className="text-center text-sm text-gray-500">
             Already have an account?{" "}
-            <a
-              href="/signin"
-              className="font-medium text-gray-700 hover:text-black transition"
-            >
+            <a href="/signin" className="font-medium text-gray-700 hover:text-black transition">
               Sign in
             </a>
           </div>

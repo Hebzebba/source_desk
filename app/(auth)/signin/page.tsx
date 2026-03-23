@@ -1,15 +1,12 @@
 "use client";
 
-import { signIn, getSession } from "next-auth/react";
-import { useState } from "react";
+import { signIn, getSession, useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ProgressSpinner } from "primereact/progressspinner";
 import toast, { Toaster } from "react-hot-toast";
 
-async function login(
-  e: React.FormEvent<HTMLFormElement>,
-  setLoading: (v: boolean) => void,
-  router: ReturnType<typeof useRouter>,
-) {
+async function login(e: React.FormEvent<HTMLFormElement>, setLoading: (v: boolean) => void, router: ReturnType<typeof useRouter>) {
   e.preventDefault();
   setLoading(true);
   const form = new FormData(e.currentTarget);
@@ -42,6 +39,24 @@ async function login(
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role) {
+      const role = session.user.role;
+      if (role === "admin") router.replace("/ui/admin");
+      else if (role === "employee") router.replace("/ui/employee");
+      else router.replace("/ui/customer");
+    }
+  }, [status, session, router]);
+
+  if (status === "loading" || status === "authenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-gray-50 to-slate-200">
+        <ProgressSpinner style={{ width: "50px", height: "50px" }} strokeWidth="4" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -53,16 +68,11 @@ export default function Login() {
         >
           <div className="space-y-1 text-center">
             <h2 className="text-2xl font-semibold text-gray-900">Sign in</h2>
-            <p className="text-sm text-gray-500">
-              Welcome back! Please enter your credentials.
-            </p>
+            <p className="text-sm text-gray-500">Welcome back! Please enter your credentials.</p>
           </div>
           <div className="space-y-4">
             <div>
-              <label
-                htmlFor="email"
-                className="block text-xs font-medium text-gray-600 mb-1"
-              >
+              <label htmlFor="email" className="block text-xs font-medium text-gray-600 mb-1">
                 Email
               </label>
               <input
@@ -75,10 +85,7 @@ export default function Login() {
               />
             </div>
             <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-medium text-gray-600 mb-1"
-              >
+              <label htmlFor="password" className="block text-xs font-medium text-gray-600 mb-1">
                 Password
               </label>
               <input
@@ -101,10 +108,7 @@ export default function Login() {
           <div className="text-center pt-2">
             <span className="text-xs text-gray-500">
               Don&apos;t have an account?{" "}
-              <a
-                href="/signup"
-                className="underline hover:text-slate-900 transition"
-              >
+              <a href="/signup" className="underline hover:text-slate-900 transition">
                 Sign up
               </a>
             </span>
