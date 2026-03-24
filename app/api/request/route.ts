@@ -18,6 +18,8 @@ export async function GET() {
         status: true,
         createdAt: true,
         updatedAt: true,
+        user: { select: { firstName: true, lastName: true } },
+        quotedBy: { select: { firstName: true, lastName: true } },
       },
     });
     return NextResponse.json(requests);

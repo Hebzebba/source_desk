@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { DataView } from "primereact/dataview";
 import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
@@ -43,12 +44,14 @@ function parseImageUrls(imgUrl: string): string[] {
 }
 
 export default function EmployeeRequestTable() {
+  const { data: session } = useSession();
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [sortKey, setSortKey] = useState("!createdAt");
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<0 | 1 | -1>(-1);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   // Edit modal state
   const [editDialogVisible, setEditDialogVisible] = useState(false);
@@ -106,6 +109,7 @@ export default function EmployeeRequestTable() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quotePrice: editQuotePrice,
+          quotedById: session?.user?.id,
         }),
       });
 
@@ -135,102 +139,146 @@ export default function EmployeeRequestTable() {
 
   const itemTemplate = (request: RequestData) => {
     const urls = parseImageUrls(request.img_url);
+    const isHovered = hoveredId === request.id;
 
     return (
-      <div className="col-12 md:col-6 xl:col-4 p-2">
+      <div className="col-12 p-2">
         <div
+          className="surface-card border-round-2xl p-4 flex flex-column sm:flex-row gap-4"
           style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "0.75rem",
-            overflow: "hidden",
-            backgroundColor: "#fff",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
+            border: "1px solid var(--surface-200)",
+            borderTop: "3px solid #059669",
+            boxShadow: isHovered ? "0 12px 32px rgba(5,150,105,0.10), 0 2px 8px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04)",
+            transition: "box-shadow 0.2s ease",
           }}
+          onMouseEnter={() => setHoveredId(request.id)}
+          onMouseLeave={() => setHoveredId(null)}
         >
-          {/* Image */}
-          {urls.length > 0 ? (
-            <div style={{ position: "relative" }}>
-              <img src={urls[0]} alt={request.name} style={{ width: "100%", height: "10rem", objectFit: "cover" }} />
-              {urls.length > 1 && (
-                <span
+          {/* Thumbnail */}
+          <div className="flex justify-content-center sm:justify-content-start" style={{ position: "relative", flexShrink: 0 }}>
+            {urls.length > 0 ? (
+              <>
+                <img
+                  src={urls[0]}
+                  alt={request.name}
+                  style={{ width: "8rem", height: "8rem", objectFit: "cover", borderRadius: "0.875rem", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}
+                />
+                {urls.length > 1 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      bottom: "0.5rem",
+                      right: "0.5rem",
+                      background: "rgba(0,0,0,0.60)",
+                      backdropFilter: "blur(4px)",
+                      color: "#fff",
+                      borderRadius: "999px",
+                      padding: "0.1rem 0.5rem",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    +{urls.length - 1}
+                  </span>
+                )}
+              </>
+            ) : (
+              <div
+                style={{
+                  width: "8rem",
+                  height: "8rem",
+                  borderRadius: "0.875rem",
+                  background: "linear-gradient(135deg, var(--surface-100) 0%, var(--surface-200) 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <i className="pi pi-image" style={{ fontSize: "2.25rem", color: "var(--surface-400)" }} />
+              </div>
+            )}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 flex flex-column gap-3" style={{ minWidth: 0 }}>
+            {/* Title + action */}
+            <div className="flex align-items-start justify-content-between gap-2">
+              <div className="flex flex-column gap-1" style={{ minWidth: 0 }}>
+                <span className="font-bold text-900" style={{ fontSize: "1.05rem", lineHeight: 1.3 }}>
+                  {request.name}
+                </span>
+                <p
+                  className="m-0"
                   style={{
-                    position: "absolute",
-                    bottom: "0.5rem",
-                    right: "0.5rem",
-                    background: "rgba(0,0,0,0.6)",
-                    color: "#fff",
-                    borderRadius: "0.5rem",
-                    padding: "0.125rem 0.5rem",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
+                    fontSize: "0.82rem",
+                    color: "var(--text-color-secondary)",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
                   }}
                 >
-                  +{urls.length - 1}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "10rem",
-                backgroundColor: "#f1f5f9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <i className="pi pi-image" style={{ fontSize: "2.5rem", color: "#cbd5e1" }} />
-            </div>
-          )}
-
-          {/* Details */}
-          <div className="flex flex-column gap-2 p-3" style={{ flex: 1 }}>
-            <div className="flex align-items-center justify-content-between gap-2">
-              <span
-                className="font-bold"
-                style={{ color: "#1e293b", fontSize: "1.05rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-              >
-                {request.name}
-              </span>
-            </div>
-
-            <span className="text-sm" style={{ color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {request.description || "No description"}
-            </span>
-
-            <div className="flex align-items-center gap-3 flex-wrap" style={{ color: "#64748b", fontSize: "0.8rem" }}>
-              <span>
-                <i className="pi pi-box mr-1" style={{ fontSize: "0.75rem" }} />
-                Qty: {request.quantity}
-              </span>
-              <span>•</span>
-              <span>
-                <i className="pi pi-calendar mr-1" style={{ fontSize: "0.75rem" }} />
-                {new Date(request.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-              </span>
-            </div>
-
-            <div className="flex align-items-center gap-4 mt-1">
-              <div className="flex flex-column">
-                <span style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>Quote Price</span>
-                <span style={{ color: request.quotePrice > 0 ? "#0d9488" : "#94a3b8", fontWeight: 600 }}>
-                  {request.quotePrice > 0 ? formatCurrency(request.quotePrice) : "—"}
-                </span>
+                  {request.description || "No description provided"}
+                </p>
               </div>
-            </div>
-
-            <div className="flex align-items-center justify-content-end gap-1 mt-auto pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
               <Button
-                icon="pi pi-pencil"
+                icon="pi pi-tag"
                 rounded
                 text
                 severity="info"
                 onClick={() => openEditDialog(request)}
                 tooltip="Set quote price"
                 tooltipOptions={{ position: "top" }}
+                style={{ flexShrink: 0 }}
+              />
+            </div>
+
+            {/* Meta chips */}
+            <div className="flex align-items-center gap-2 flex-wrap">
+              {[
+                { icon: "pi-box", label: `Qty ${request.quantity}` },
+                { icon: "pi-calendar", label: new Date(request.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) },
+              ].map(({ icon, label }) => (
+                <span
+                  key={label}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                    padding: "0.2rem 0.6rem",
+                    borderRadius: "999px",
+                    background: "var(--surface-100)",
+                    color: "var(--text-color-secondary)",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                  }}
+                >
+                  <i className={`pi ${icon}`} style={{ fontSize: "0.68rem" }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div
+              className="flex align-items-center justify-content-between pt-3"
+              style={{ borderTop: "1px solid var(--surface-200)", marginTop: "auto" }}
+            >
+              <div className="flex flex-column gap-1">
+                <span style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-color-secondary)" }}>
+                  Quote Price
+                </span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: request.quotePrice > 0 ? "#059669" : "var(--surface-400)" }}>
+                  {request.quotePrice > 0 ? formatCurrency(request.quotePrice) : "Not set"}
+                </span>
+              </div>
+              <Button
+                label="Set Price"
+                icon="pi pi-pencil"
+                size="small"
+                onClick={() => openEditDialog(request)}
+                style={{ background: "#059669", borderColor: "#059669", borderRadius: "999px", fontSize: "0.78rem" }}
               />
             </div>
           </div>
@@ -240,15 +288,31 @@ export default function EmployeeRequestTable() {
   };
 
   const header = (
-    <div className="flex justify-content-between align-items-center flex-wrap gap-2">
-      <span className="font-semibold text-lg" style={{ color: "#0d9488" }}>
-        Pending Requests
-      </span>
+    <div className="flex flex-column sm:flex-row justify-content-between align-items-start sm:align-items-center gap-3">
       <div className="flex align-items-center gap-2">
+        <span className="font-bold text-900" style={{ fontSize: "1.1rem" }}>Pending Requests</span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#d1fae5",
+            color: "#047857",
+            borderRadius: "999px",
+            padding: "0.1rem 0.55rem",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            minWidth: "1.5rem",
+          }}
+        >
+          {filteredRequests.length}
+        </span>
+      </div>
+      <div className="flex align-items-center gap-2 flex-wrap">
         <Dropdown value={sortKey} options={sortOptions} onChange={(e) => onSortChange(e.value)} placeholder="Sort by" className="w-11rem" />
         <IconField iconPosition="left">
           <InputIcon className="pi pi-search" />
-          <InputText value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search requests..." />
+          <InputText value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search requests..." className="w-full" />
         </IconField>
       </div>
     </div>
@@ -260,10 +324,10 @@ export default function EmployeeRequestTable() {
       <DataView
         value={filteredRequests}
         itemTemplate={itemTemplate}
-        layout="grid"
+        layout="list"
         paginator
-        rows={9}
-        rowsPerPageOptions={[9, 18, 36]}
+        rows={6}
+        rowsPerPageOptions={[6, 12, 24]}
         sortField={sortField}
         sortOrder={sortOrder}
         header={header}
@@ -312,7 +376,7 @@ export default function EmployeeRequestTable() {
                 label="Save"
                 icon="pi pi-check"
                 loading={saving}
-                style={{ backgroundColor: "#0d9488", borderColor: "#0d9488" }}
+                style={{ backgroundColor: "#059669", borderColor: "#059669" }}
                 onClick={confirmSaveEdit}
               />
             </div>

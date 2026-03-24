@@ -4,7 +4,6 @@ import { DataView } from "primereact/dataview";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { InputNumber } from "primereact/inputnumber";
-import { Tag } from "primereact/tag";
 import { IconField } from "primereact/iconfield";
 import { InputIcon } from "primereact/inputicon";
 import { Dropdown } from "primereact/dropdown";
@@ -44,21 +43,22 @@ const sortOptions = [
 ];
 
 function getStatusStyle(status: string): React.CSSProperties {
+  const base: React.CSSProperties = { border: "1px solid" };
   switch (status) {
     case "PENDING":
-      return { backgroundColor: "#fef3c7", color: "#92400e" };
+      return { ...base, backgroundColor: "#fffbeb", color: "#b45309", borderColor: "#fde68a" };
     case "QUOTED":
-      return { backgroundColor: "#dbeafe", color: "#1e40af" };
+      return { ...base, backgroundColor: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" };
     case "APPROVED":
-      return { backgroundColor: "#dcfce7", color: "#166534" };
+      return { ...base, backgroundColor: "#f0fdf4", color: "#15803d", borderColor: "#bbf7d0" };
     case "PURCHASED":
-      return { backgroundColor: "#f3e8ff", color: "#6b21a8" };
+      return { ...base, backgroundColor: "#faf5ff", color: "#7e22ce", borderColor: "#e9d5ff" };
     case "AT_WAREHOUSE":
-      return { backgroundColor: "#e0e7ff", color: "#3730a3" };
+      return { ...base, backgroundColor: "#eef2ff", color: "#4338ca", borderColor: "#c7d2fe" };
     case "SHIPPED":
-      return { backgroundColor: "#ccfbf1", color: "#115e59" };
+      return { ...base, backgroundColor: "#f0fdfa", color: "#0f766e", borderColor: "#99f6e4" };
     case "DONE":
-      return { backgroundColor: "#d1fae5", color: "#065f46" };
+      return { ...base, backgroundColor: "#f0fdf4", color: "#166534", borderColor: "#86efac" };
     default:
       return {};
   }
@@ -93,6 +93,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
   const [sortKey, setSortKey] = useState("!createdAt");
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<0 | 1 | -1>(-1);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   // Edit state
   const [editDialogVisible, setEditDialogVisible] = useState(false);
@@ -289,126 +290,173 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
 
   const itemTemplate = (request: RequestData) => {
     const urls = parseImageUrls(request.img_url);
+    const isHovered = hoveredId === request.id;
 
     return (
-      <div className="col-12 md:col-6 xl:col-4 p-2">
+      <div className="col-12 p-2">
         <div
+          className="surface-card border-round-2xl p-4 flex flex-column sm:flex-row gap-4"
           style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "0.75rem",
-            overflow: "hidden",
-            backgroundColor: "#fff",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
+            border: "1px solid var(--surface-200)",
+            borderTop: "3px solid #7c3aed",
+            boxShadow: isHovered ? "0 12px 32px rgba(124,58,237,0.10), 0 2px 8px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04)",
+            transition: "box-shadow 0.2s ease",
           }}
+          onMouseEnter={() => setHoveredId(request.id)}
+          onMouseLeave={() => setHoveredId(null)}
         >
-          {/* Image */}
-          {urls.length > 0 ? (
-            <div style={{ position: "relative" }}>
-              <img src={urls[0]} alt={request.name} style={{ width: "100%", height: "10rem", objectFit: "cover" }} />
-              {urls.length > 1 && (
-                <span
+          {/* Thumbnail */}
+          <div className="flex justify-content-center sm:justify-content-start" style={{ position: "relative", flexShrink: 0 }}>
+            {urls.length > 0 ? (
+              <>
+                <img
+                  src={urls[0]}
+                  alt={request.name}
+                  style={{ width: "8rem", height: "8rem", objectFit: "cover", borderRadius: "0.875rem", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}
+                />
+                {urls.length > 1 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      bottom: "0.5rem",
+                      right: "0.5rem",
+                      background: "rgba(0,0,0,0.60)",
+                      backdropFilter: "blur(4px)",
+                      color: "#fff",
+                      borderRadius: "999px",
+                      padding: "0.1rem 0.5rem",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    +{urls.length - 1}
+                  </span>
+                )}
+              </>
+            ) : (
+              <div
+                style={{
+                  width: "8rem",
+                  height: "8rem",
+                  borderRadius: "0.875rem",
+                  background: "linear-gradient(135deg, var(--surface-100) 0%, var(--surface-200) 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <i className="pi pi-image" style={{ fontSize: "2.25rem", color: "var(--surface-400)" }} />
+              </div>
+            )}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 flex flex-column gap-3" style={{ minWidth: 0 }}>
+            {/* Title + status */}
+            <div className="flex align-items-start justify-content-between gap-2">
+              <div className="flex flex-column gap-1" style={{ minWidth: 0 }}>
+                <span className="font-bold text-900" style={{ fontSize: "1.05rem", lineHeight: 1.3 }}>
+                  {request.name}
+                </span>
+                <p
+                  className="m-0"
                   style={{
-                    position: "absolute",
-                    bottom: "0.5rem",
-                    right: "0.5rem",
-                    background: "rgba(0,0,0,0.6)",
-                    color: "#fff",
-                    borderRadius: "0.5rem",
-                    padding: "0.125rem 0.5rem",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
+                    fontSize: "0.82rem",
+                    color: "var(--text-color-secondary)",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
                   }}
                 >
-                  +{urls.length - 1}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "10rem",
-                backgroundColor: "#f1f5f9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <i className="pi pi-image" style={{ fontSize: "2.5rem", color: "#cbd5e1" }} />
-            </div>
-          )}
-
-          {/* Details */}
-          <div className="flex flex-column gap-2 p-3" style={{ flex: 1 }}>
-            <div className="flex align-items-center justify-content-between gap-2">
+                  {request.description || "No description provided"}
+                </p>
+              </div>
               <span
-                className="font-bold"
-                style={{ color: "#1e293b", fontSize: "1.05rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  padding: "0.25rem 0.65rem",
+                  borderRadius: "999px",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  flexShrink: 0,
+                  ...getStatusStyle(request.status),
+                }}
               >
-                {request.name}
-              </span>
-              <Tag value={formatStatusLabel(request.status)} style={getStatusStyle(request.status)} />
-            </div>
-
-            <span className="text-sm" style={{ color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {request.description || "No description"}
-            </span>
-
-            <div className="flex align-items-center gap-3 flex-wrap" style={{ color: "#64748b", fontSize: "0.8rem" }}>
-              <span>
-                <i className="pi pi-box mr-1" style={{ fontSize: "0.75rem" }} />
-                Qty: {request.quantity}
-              </span>
-              <span>•</span>
-              <span>
-                <i className="pi pi-calendar mr-1" style={{ fontSize: "0.75rem" }} />
-                {new Date(request.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
+                {formatStatusLabel(request.status)}
               </span>
             </div>
 
-            <div className="flex align-items-center gap-4 mt-1">
-              <div className="flex flex-column">
-                <span style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", fontWeight: 600 }}>Price</span>
-                <span style={{ color: request.finalPrice > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
+            {/* Meta chips */}
+            <div className="flex align-items-center gap-2 flex-wrap">
+              {[
+                { icon: "pi-box", label: `Qty ${request.quantity}` },
+                { icon: "pi-calendar", label: new Date(request.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) },
+              ].map(({ icon, label }) => (
+                <span
+                  key={label}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                    padding: "0.2rem 0.6rem",
+                    borderRadius: "999px",
+                    background: "var(--surface-100)",
+                    color: "var(--text-color-secondary)",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                  }}
+                >
+                  <i className={`pi ${icon}`} style={{ fontSize: "0.68rem" }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div
+              className="flex align-items-center justify-content-between pt-3"
+              style={{ borderTop: "1px solid var(--surface-200)", marginTop: "auto" }}
+            >
+              <div className="flex flex-column gap-1">
+                <span style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-color-secondary)" }}>
+                  Final Price
+                </span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: request.finalPrice > 0 ? "#059669" : "var(--surface-400)" }}>
                   {request.finalPrice > 0 ? formatCurrency(request.finalPrice) : "—"}
                 </span>
               </div>
-            </div>
-
-            <div className="flex align-items-center justify-content-end gap-1 mt-auto pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
-              {request.status === "QUOTED" && (
+              <div className="flex align-items-center gap-1">
+                {request.status === "QUOTED" && (
+                  <Button icon="pi pi-check" rounded text severity="success" onClick={() => confirmApprove(request)} tooltip="Approve final price" tooltipOptions={{ position: "top" }} />
+                )}
                 <Button
-                  icon="pi pi-check"
+                  icon="pi pi-pencil"
                   rounded
                   text
-                  severity="success"
-                  onClick={() => confirmApprove(request)}
-                  tooltip="Approve final price"
+                  severity="info"
+                  onClick={() => openEditDialog(request)}
+                  disabled={!isEditable(request)}
+                  tooltip={!isEditable(request) ? "Cannot edit after quoting" : "Edit request"}
                   tooltipOptions={{ position: "top" }}
                 />
-              )}
-              <Button
-                icon="pi pi-pencil"
-                rounded
-                text
-                severity="info"
-                onClick={() => openEditDialog(request)}
-                disabled={!isEditable(request)}
-                tooltip={!isEditable(request) ? "Cannot edit after quoting" : "Edit request"}
-                tooltipOptions={{ position: "top" }}
-              />
-              <Button
-                icon="pi pi-trash"
-                rounded
-                text
-                severity="danger"
-                onClick={() => confirmDelete(request)}
-                disabled={!isEditable(request)}
-                tooltip={!isEditable(request) ? "Cannot delete after quoting" : "Delete request"}
-                tooltipOptions={{ position: "top" }}
-              />
+                <Button
+                  icon="pi pi-trash"
+                  rounded
+                  text
+                  severity="danger"
+                  onClick={() => confirmDelete(request)}
+                  disabled={!isEditable(request)}
+                  tooltip={!isEditable(request) ? "Cannot delete after quoting" : "Delete request"}
+                  tooltipOptions={{ position: "top" }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -417,22 +465,32 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
   };
 
   const header = (
-    <div className="flex justify-content-between align-items-center flex-wrap gap-2">
-      <span className="font-semibold text-lg" style={{ color: "#c2410c" }}>
-        My Requests
-      </span>
+    <div className="flex flex-column sm:flex-row justify-content-between align-items-start sm:align-items-center gap-3">
       <div className="flex align-items-center gap-2">
+        <span className="font-bold text-900" style={{ fontSize: "1.1rem" }}>My Requests</span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#ede9fe",
+            color: "#6d28d9",
+            borderRadius: "999px",
+            padding: "0.1rem 0.55rem",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            minWidth: "1.5rem",
+          }}
+        >
+          {filteredRequests.length}
+        </span>
+      </div>
+      <div className="flex align-items-center gap-2 flex-wrap">
         <Dropdown value={sortKey} options={sortOptions} onChange={(e) => onSortChange(e.value)} placeholder="Sort by" className="w-11rem" />
-        <Dropdown
-          value={statusFilter}
-          options={statusFilterOptions}
-          onChange={(e) => setStatusFilter(e.value)}
-          placeholder="Filter by status"
-          className="w-12rem"
-        />
+        <Dropdown value={statusFilter} options={statusFilterOptions} onChange={(e) => setStatusFilter(e.value)} placeholder="Filter by status" className="w-12rem" />
         <IconField iconPosition="left">
           <InputIcon className="pi pi-search" />
-          <InputText value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search requests..." />
+          <InputText value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search requests..." className="w-full" />
         </IconField>
       </div>
     </div>
@@ -444,10 +502,10 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
       <DataView
         value={filteredRequests}
         itemTemplate={itemTemplate}
-        layout="grid"
+        layout="list"
         paginator
-        rows={9}
-        rowsPerPageOptions={[9, 18, 36]}
+        rows={6}
+        rowsPerPageOptions={[6, 12, 24]}
         sortField={sortField}
         sortOrder={sortOrder}
         header={header}
@@ -531,7 +589,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
                         <img
                           src={preview}
                           alt={`New ${idx + 1}`}
-                          style={{ width: "7rem", height: "7rem", objectFit: "cover", borderRadius: "0.75rem", border: "2px solid #f97316" }}
+                          style={{ width: "7rem", height: "7rem", objectFit: "cover", borderRadius: "0.75rem", border: "2px solid #7c3aed" }}
                         />
                         <Button
                           icon="pi pi-times"
@@ -553,7 +611,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
                       text
                       size="small"
                       type="button"
-                      style={{ color: "#f97316", alignSelf: "flex-start" }}
+                      style={{ color: "#7c3aed", alignSelf: "flex-start" }}
                       onClick={() => editFileInputRef.current?.click()}
                     />
                   )}
@@ -578,7 +636,7 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
                 label="Save Changes"
                 icon="pi pi-check"
                 loading={saving}
-                style={{ backgroundColor: "#f97316", borderColor: "#f97316" }}
+                style={{ backgroundColor: "#7c3aed", borderColor: "#7c3aed" }}
                 onClick={confirmSaveEdit}
               />
             </div>

@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
-    const { name, quantity, description, img_url, quotePrice, finalPrice, status } = body;
+    const { name, quantity, description, img_url, quotePrice, finalPrice, status, quotedById } = body;
 
     // Check if request exists
     const existingRequest = await prisma.request.findUnique({
@@ -74,6 +74,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (quotePrice !== undefined) updateData.quotePrice = quotePrice;
     if (finalPrice !== undefined) updateData.finalPrice = finalPrice;
     if (status !== undefined) updateData.status = status;
+    if (quotedById !== undefined) updateData.quotedById = quotedById;
 
     // Auto-set status to QUOTED when final price is set on a PENDING request
     if (finalPrice !== undefined && finalPrice > 0 && existingRequest.status === "PENDING") {
@@ -95,6 +96,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         status: true,
         createdAt: true,
         updatedAt: true,
+        user: { select: { firstName: true, lastName: true } },
+        quotedBy: { select: { firstName: true, lastName: true } },
       },
     });
 
