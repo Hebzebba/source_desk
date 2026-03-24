@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DataView } from "primereact/dataview";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
@@ -9,6 +9,7 @@ import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { IconField } from "primereact/iconfield";
+import { Galleria } from "primereact/galleria";
 import { InputIcon } from "primereact/inputicon";
 
 interface RequestData {
@@ -90,6 +91,16 @@ export default function RequestTable() {
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<0 | 1 | -1>(-1);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<Record<string, number>>({});
+  const [galleriaImages, setGalleriaImages] = useState<string[]>([]);
+  const [galleriaActiveIndex, setGalleriaActiveIndex] = useState(0);
+  const galleriaRef = useRef<Galleria>(null);
+
+  const openGalleria = (urls: string[], index = 0) => {
+    setGalleriaImages(urls);
+    setGalleriaActiveIndex(index);
+    galleriaRef.current?.show();
+  };
 
   // Edit modal state
   const [editDialogVisible, setEditDialogVisible] = useState(false);
@@ -230,47 +241,43 @@ export default function RequestTable() {
           onMouseEnter={() => setHoveredId(request.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
-          {/* Thumbnail */}
-          <div className="flex justify-content-center sm:justify-content-start" style={{ position: "relative", flexShrink: 0 }}>
+          {/* Image carousel */}
+          <div className="flex justify-content-center sm:justify-content-start" style={{ flexShrink: 0 }}>
             {urls.length > 0 ? (
-              <>
+              <div style={{ position: "relative", width: "8rem", height: "8rem" }}>
                 <img
-                  src={urls[0]}
+                  src={urls[activeImageIndex[request.id] ?? 0]}
                   alt={request.name}
-                  style={{ width: "8rem", height: "8rem", objectFit: "cover", borderRadius: "0.875rem", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}
+                  onClick={() => openGalleria(urls, activeImageIndex[request.id] ?? 0)}
+                  style={{ width: "8rem", height: "8rem", objectFit: "cover", borderRadius: "0.875rem", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,0.12)", cursor: "pointer" }}
                 />
-                {urls.length > 1 && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      bottom: "0.5rem",
-                      right: "0.5rem",
-                      background: "rgba(0,0,0,0.60)",
-                      backdropFilter: "blur(4px)",
-                      color: "#fff",
-                      borderRadius: "999px",
-                      padding: "0.1rem 0.5rem",
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.02em",
-                    }}
-                  >
-                    +{urls.length - 1}
-                  </span>
+                {urls.length > 1 && (activeImageIndex[request.id] ?? 0) > 0 && (
+                  <button onClick={(e) => { e.stopPropagation(); setActiveImageIndex((p) => ({ ...p, [request.id]: (p[request.id] ?? 0) - 1 })); }}
+                    style={{ position: "absolute", left: "0.25rem", top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", border: "none", borderRadius: "50%", width: "1.5rem", height: "1.5rem", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                  ><i className="pi pi-angle-left" style={{ fontSize: "0.8rem" }} /></button>
                 )}
-              </>
+                {urls.length > 1 && (activeImageIndex[request.id] ?? 0) < urls.length - 1 && (
+                  <button onClick={(e) => { e.stopPropagation(); setActiveImageIndex((p) => ({ ...p, [request.id]: (p[request.id] ?? 0) + 1 })); }}
+                    style={{ position: "absolute", right: "0.25rem", top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", border: "none", borderRadius: "50%", width: "1.5rem", height: "1.5rem", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                  ><i className="pi pi-angle-right" style={{ fontSize: "0.8rem" }} /></button>
+                )}
+                {urls.length > 1 && (
+                  <div style={{ position: "absolute", bottom: "0.4rem", left: 0, right: 0, display: "flex", justifyContent: "center", gap: "0.3rem" }}>
+                    {urls.map((_, i) => (
+                      <span key={i}
+                        onClick={(e) => { e.stopPropagation(); setActiveImageIndex((p) => ({ ...p, [request.id]: i })); }}
+                        style={{ width: i === (activeImageIndex[request.id] ?? 0) ? "0.5rem" : "0.35rem", height: i === (activeImageIndex[request.id] ?? 0) ? "0.5rem" : "0.35rem", borderRadius: "50%", background: i === (activeImageIndex[request.id] ?? 0) ? "#fff" : "rgba(255,255,255,0.55)", cursor: "pointer", transition: "all 0.15s" }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div onClick={() => openGalleria(urls, activeImageIndex[request.id] ?? 0)}
+                  style={{ position: "absolute", top: "0.35rem", right: "0.35rem", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", borderRadius: "50%", width: "1.5rem", height: "1.5rem", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <i className="pi pi-arrows-alt" style={{ fontSize: "0.65rem", color: "#fff" }} />
+                </div>
+              </div>
             ) : (
-              <div
-                style={{
-                  width: "8rem",
-                  height: "8rem",
-                  borderRadius: "0.875rem",
-                  background: "linear-gradient(135deg, var(--surface-100) 0%, var(--surface-200) 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{ width: "8rem", height: "8rem", borderRadius: "0.875rem", background: "linear-gradient(135deg, var(--surface-100) 0%, var(--surface-200) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <i className="pi pi-image" style={{ fontSize: "2.25rem", color: "var(--surface-400)" }} />
               </div>
             )}
@@ -429,6 +436,22 @@ export default function RequestTable() {
   return (
     <>
       <ConfirmDialog />
+      <Galleria
+        ref={galleriaRef}
+        value={galleriaImages.map((src) => ({ src }))}
+        activeIndex={galleriaActiveIndex}
+        onItemChange={(e) => setGalleriaActiveIndex(e.index)}
+        fullScreen
+        showThumbnails={galleriaImages.length > 1}
+        showItemNavigators={galleriaImages.length > 1}
+        numVisible={3}
+        item={(item: { src: string }) => (
+          <img src={item.src} alt="" style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain", borderRadius: "0.5rem" }} />
+        )}
+        thumbnail={(item: { src: string }) => (
+          <img src={item.src} alt="" style={{ width: "4rem", height: "4rem", objectFit: "cover", borderRadius: "0.5rem" }} />
+        )}
+      />
       <DataView
         value={filteredRequests}
         itemTemplate={itemTemplate}
