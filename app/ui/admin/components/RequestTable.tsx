@@ -51,17 +51,17 @@ function getStatusStyle(status: string): React.CSSProperties {
     case "PENDING":
       return { ...base, backgroundColor: "#fffbeb", color: "#b45309", borderColor: "#fde68a" };
     case "QUOTED":
-      return { ...base, backgroundColor: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" };
+      return { ...base, backgroundColor: "#eff6ff", color: "#1D4ED8", borderColor: "#bfdbfe" };
     case "APPROVED":
-      return { ...base, backgroundColor: "#f0fdf4", color: "#15803d", borderColor: "#bbf7d0" };
+      return { ...base, backgroundColor: "#ecfdf5", color: "#059669", borderColor: "#6ee7b7" };
     case "PURCHASED":
       return { ...base, backgroundColor: "#faf5ff", color: "#7e22ce", borderColor: "#e9d5ff" };
     case "AT_WAREHOUSE":
-      return { ...base, backgroundColor: "#eef2ff", color: "#2563eb", borderColor: "#c7d2fe" };
+      return { ...base, backgroundColor: "#eef2ff", color: "#4338ca", borderColor: "#c7d2fe" };
     case "SHIPPED":
       return { ...base, backgroundColor: "#f0fdfa", color: "#0f766e", borderColor: "#99f6e4" };
     case "DONE":
-      return { ...base, backgroundColor: "#f0fdf4", color: "#166534", borderColor: "#86efac" };
+      return { ...base, backgroundColor: "#d1fae5", color: "#065f46", borderColor: "#6ee7b7" };
     default:
       return {};
   }
@@ -234,8 +234,8 @@ export default function RequestTable() {
           className="surface-card border-round-2xl p-4 flex flex-column sm:flex-row gap-4"
           style={{
             border: "1px solid var(--surface-200)",
-            borderTop: "3px solid #2563eb",
-            boxShadow: isHovered ? "0 12px 32px rgba(37,99,235,0.10), 0 2px 8px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04)",
+            borderTop: "3px solid #1D4ED8",
+            boxShadow: isHovered ? "0 12px 32px rgba(29,78,216,0.10), 0 2px 8px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04)",
             transition: "box-shadow 0.2s ease",
           }}
           onMouseEnter={() => setHoveredId(request.id)}
@@ -361,8 +361,8 @@ export default function RequestTable() {
                     gap: "0.3rem",
                     padding: "0.2rem 0.6rem",
                     borderRadius: "999px",
-                    background: "#eef2ff",
-                    color: "#4338ca",
+                    background: "#eff6ff",
+                    color: "#1D4ED8",
                     fontSize: "0.75rem",
                     fontWeight: 500,
                   }}
@@ -385,7 +385,7 @@ export default function RequestTable() {
                 </div>
                 <div className="flex flex-column gap-1">
                   <span style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-color-secondary)" }}>Final</span>
-                  <span style={{ fontSize: "1rem", fontWeight: 800, color: request.finalPrice > 0 ? "#059669" : "var(--surface-400)" }}>
+                  <span style={{ fontSize: "1rem", fontWeight: 800, color: request.finalPrice > 0 ? "#10B981" : "var(--surface-400)" }}>
                     {request.finalPrice > 0 ? formatCurrency(request.finalPrice) : "—"}
                   </span>
                 </div>
@@ -411,7 +411,7 @@ export default function RequestTable() {
             alignItems: "center",
             justifyContent: "center",
             background: "#dbeafe",
-            color: "#1d4ed8",
+            color: "#1D4ED8",
             borderRadius: "999px",
             padding: "0.1rem 0.55rem",
             fontSize: "0.72rem",
@@ -554,7 +554,7 @@ export default function RequestTable() {
                 label="Save Changes"
                 icon="pi pi-check"
                 loading={saving}
-                style={{ backgroundColor: "#2563eb", borderColor: "#2563eb" }}
+                style={{ backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" }}
                 onClick={confirmSaveEdit}
               />
             </div>

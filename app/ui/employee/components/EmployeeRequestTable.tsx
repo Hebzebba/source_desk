@@ -158,8 +158,8 @@ export default function EmployeeRequestTable() {
           className="surface-card border-round-2xl p-4 flex flex-column sm:flex-row gap-4"
           style={{
             border: "1px solid var(--surface-200)",
-            borderTop: "3px solid #059669",
-            boxShadow: isHovered ? "0 12px 32px rgba(5,150,105,0.10), 0 2px 8px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04)",
+            borderTop: "3px solid #1D4ED8",
+            boxShadow: isHovered ? "0 12px 32px rgba(29,78,216,0.10), 0 2px 8px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04)",
             transition: "box-shadow 0.2s ease",
           }}
           onMouseEnter={() => setHoveredId(request.id)}
@@ -276,7 +276,7 @@ export default function EmployeeRequestTable() {
                 <span style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-color-secondary)" }}>
                   Quote Price
                 </span>
-                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: request.quotePrice > 0 ? "#059669" : "var(--surface-400)" }}>
+                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: request.quotePrice > 0 ? "#10B981" : "var(--surface-400)" }}>
                   {request.quotePrice > 0 ? formatCurrency(request.quotePrice) : "Not set"}
                 </span>
               </div>
@@ -285,7 +285,7 @@ export default function EmployeeRequestTable() {
                 icon="pi pi-pencil"
                 size="small"
                 onClick={() => openEditDialog(request)}
-                style={{ background: "#059669", borderColor: "#059669", borderRadius: "999px", fontSize: "0.78rem" }}
+                style={{ background: "#10B981", borderColor: "#10B981", borderRadius: "999px", fontSize: "0.78rem" }}
               />
             </div>
           </div>
@@ -303,8 +303,8 @@ export default function EmployeeRequestTable() {
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#d1fae5",
-            color: "#047857",
+            background: "#dbeafe",
+            color: "#1D4ED8",
             borderRadius: "999px",
             padding: "0.1rem 0.55rem",
             fontSize: "0.72rem",
@@ -399,7 +399,7 @@ export default function EmployeeRequestTable() {
                 label="Save"
                 icon="pi pi-check"
                 loading={saving}
-                style={{ backgroundColor: "#059669", borderColor: "#059669" }}
+                style={{ backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" }}
                 onClick={confirmSaveEdit}
               />
             </div>
