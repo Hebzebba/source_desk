@@ -3,7 +3,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import CustomerDashboardClient from "./components/CustomerDashboardClient";
 import { PrimeReactProvider } from "primereact/api";
-import SessionWrapper from "./components/SessionWrapper";
+import SessionWrapper from "@/app/ui/components/SessionWrapper";
 
 export default async function CustomerDashboard() {
   const session = await getServerSession(authOptions);

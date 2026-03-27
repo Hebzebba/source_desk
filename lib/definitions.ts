@@ -10,7 +10,8 @@ export const SignupFormSchema = z.object({
   email: z.email({ error: "Please enter a valid email." }).trim(),
   password: z
     .string()
-    .min(6, { error: "Be at least 6 characters long" })
+    .min(8, { error: "Be at least 8 characters long" })
+    .regex(/[0-9!@#$%^&*]/, { error: "Must contain at least one number or special character" })
     .trim(),
 });
 

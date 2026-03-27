@@ -42,6 +42,11 @@ model Request {
 
   quotedById String?
   quotedBy   User?   @relation("QuotedRequests", fields: [quotedById], references: [id])
+
+  @@index([customerId])
+  @@index([quotedById])
+  @@index([status])
+  @@index([createdAt])
 }
 
 enum Role {

@@ -1,5 +1,7 @@
 "use server";
 import { SignupFormSchema, FormState } from "../../lib/definitions";
+import prisma from "@/lib/prisma";
+import bcrypt from "bcrypt";
 
 export type SignupErrors = {
   firstName?: string[];
@@ -8,7 +10,6 @@ export type SignupErrors = {
   password?: string[];
   form?: string[];
 };
-const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 export async function signup(state: FormState, formData: FormData) {
   const formValues = {
@@ -27,19 +28,33 @@ export async function signup(state: FormState, formData: FormData) {
     };
   }
 
-  const resp = await fetch(new URL("/api/user", BASE_URL).toString(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...validatedFields.data }),
-  });
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { email: validatedFields.data.email },
+    });
+    if (existing) {
+      return {
+        errors: { form: ["An account with this email already exists"] } as SignupErrors,
+        values: formValues,
+      };
+    }
 
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => null);
+    const hashedPassword = await bcrypt.hash(validatedFields.data.password, 12);
+    await prisma.user.create({
+      data: {
+        email: validatedFields.data.email,
+        firstName: validatedFields.data.firstName,
+        lastName: validatedFields.data.lastName,
+        password: hashedPassword,
+        role: "CUSTOMER",
+      },
+    });
+
+    return { success: true };
+  } catch {
     return {
-      errors: { form: [body?.error || "Registration failed"] } as SignupErrors,
+      errors: { form: ["Registration failed. Please try again."] } as SignupErrors,
       values: formValues,
     };
   }
-
-  return { success: true };
 }

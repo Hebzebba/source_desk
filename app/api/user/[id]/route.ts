@@ -1,31 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
+import { notifyUpdate } from "@/lib/notify";
 
-/*
-PUT /api/user/:id
-*/
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
-
-    if (!id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
-    }
-
     const body = await req.json();
-    const { email, firstName, lastName, password, role } = body;
+    const { email, firstName, lastName, role } = body;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-    });
-
+    const existingUser = await prisma.user.findUnique({ where: { id } });
     if (!existingUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Prepare update data
-    const updateData: any = {};
+    const VALID_ROLES = ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const;
+    if (role && !VALID_ROLES.includes(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+
+    const updateData: Record<string, string> = {};
     if (email) updateData.email = email;
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
@@ -46,49 +46,39 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
+    await notifyUpdate();
     return NextResponse.json(user);
   } catch (error) {
-    console.error("User update error:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to update user",
-      },
+      { error: error instanceof Error ? error.message : "Failed to update user" },
       { status: 500 },
     );
   }
 }
 
-/*
-DELETE /api/user/:id
-*/
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
 
-    if (!id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
-    }
-
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-    });
-
+    const existingUser = await prisma.user.findUnique({ where: { id } });
     if (!existingUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    await prisma.user.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ message: "User deleted successfully" }, { status: 200 });
+    await prisma.$transaction([
+      prisma.request.deleteMany({ where: { customerId: id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
+    await notifyUpdate();
+    return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {
-    console.error("User delete error:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to delete user",
-      },
+      { error: error instanceof Error ? error.message : "Failed to delete user" },
       { status: 500 },
     );
   }

@@ -120,19 +120,26 @@ export default function CustomerRequestTable({ refreshKey, customerId, onDelete 
   const MAX_IMAGES = 3;
 
   useEffect(() => {
-    setLoading(true);
-    const fetchRequests = () => {
-      fetch("/api/request", { cache: "no-store" })
-        .then((res) => res.json())
-        .then((data: RequestData[]) => {
-          setRequests(data.filter((r) => r.customerId === customerId));
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+    const source = new EventSource("/api/events");
+    source.onmessage = (e) => {
+      const { requests } = JSON.parse(e.data);
+      if (Array.isArray(requests)) {
+        setRequests(requests);
+        setLoading(false);
+      }
     };
-    fetchRequests();
-    const interval = setInterval(fetchRequests, 10000);
-    return () => clearInterval(interval);
+    source.onerror = () => {};
+    return () => source.close();
+  }, []);
+
+  // Immediate refetch after mutations (new request submitted, edit, delete)
+  useEffect(() => {
+    if (refreshKey === 0 || !customerId) return;
+    setLoading(true);
+    fetch("/api/request", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: RequestData[]) => setRequests(Array.isArray(data) ? data : []))
+      .finally(() => setLoading(false));
   }, [refreshKey, customerId]);
 
   const filteredRequests = requests.filter((r) => {

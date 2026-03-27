@@ -51,9 +51,6 @@ interface RequestData {
   createdAt: string;
 }
 
-function getMonthLabel(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-}
 
 export default function AdminDashboardClient() {
   const { data: session } = useSession();
@@ -63,24 +60,19 @@ export default function AdminDashboardClient() {
   const [activeRoute, setActiveRoute] = useState("dashboard");
   const [users, setUsers] = useState<UserData[]>([]);
   const [requests, setRequests] = useState<RequestData[]>([]);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [employeeRefreshKey, setEmployeeRefreshKey] = useState(0);
+  const [sseError, setSseError] = useState(false);
 
   useEffect(() => {
-    const fetchData = () => {
-      Promise.all([
-        fetch("/api/user", { cache: "no-store" }).then((res) => res.json()),
-        fetch("/api/request", { cache: "no-store" }).then((res) => res.json()),
-      ])
-        .then(([userData, requestData]) => {
-          setUsers(Array.isArray(userData) ? userData : []);
-          setRequests(Array.isArray(requestData) ? requestData : []);
-        })
-        .finally(() => setDashboardLoading(false));
+    const source = new EventSource("/api/events");
+    source.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (Array.isArray(data.users)) setUsers(data.users);
+      if (Array.isArray(data.requests)) setRequests(data.requests);
+      setSseError(false);
     };
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    source.onerror = () => { setSseError(true); source.close(); };
+    return () => source.close();
   }, []);
 
   // Build employee chart: employees created per month (last 6 months)
@@ -235,6 +227,15 @@ export default function AdminDashboardClient() {
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "#f1f5f9" }}>
+      {sseError && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999, backgroundColor: "#fef2f2", borderBottom: "1px solid #fecaca", padding: "0.75rem 1.25rem", display: "flex", alignItems: "center", gap: "0.5rem", color: "#991b1b", fontSize: "0.875rem" }}>
+          <i className="pi pi-exclamation-triangle" />
+          <span>Live updates disconnected. Refresh the page to reconnect.</span>
+          <button onClick={() => setSseError(false)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#991b1b" }}>
+            <i className="pi pi-times" />
+          </button>
+        </div>
+      )}
       {/* Desktop Sidebar */}
       <div
         className="hidden md:block shadow-2 fixed left-0 top-0 h-screen overflow-y-auto z-5"

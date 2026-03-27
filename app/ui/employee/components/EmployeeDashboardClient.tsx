@@ -35,20 +35,17 @@ export default function EmployeeDashboardClient() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeRoute, setActiveRoute] = useState("dashboard");
   const [requests, setRequests] = useState<RequestData[]>([]);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [sseError, setSseError] = useState(false);
 
   useEffect(() => {
-    const fetchRequests = () => {
-      fetch("/api/request", { cache: "no-store" })
-        .then((res) => res.json())
-        .then((data: RequestData[]) => {
-          setRequests(Array.isArray(data) ? data : []);
-        })
-        .finally(() => setDashboardLoading(false));
+    const source = new EventSource("/api/events");
+    source.onmessage = (e) => {
+      const { requests } = JSON.parse(e.data);
+      if (Array.isArray(requests)) setRequests(requests);
+      setSseError(false);
     };
-    fetchRequests();
-    const interval = setInterval(fetchRequests, 10000);
-    return () => clearInterval(interval);
+    source.onerror = () => { setSseError(true); source.close(); };
+    return () => source.close();
   }, []);
 
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
@@ -125,6 +122,15 @@ export default function EmployeeDashboardClient() {
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "#f1f5f9" }}>
+      {sseError && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999, backgroundColor: "#fef2f2", borderBottom: "1px solid #fecaca", padding: "0.75rem 1.25rem", display: "flex", alignItems: "center", gap: "0.5rem", color: "#991b1b", fontSize: "0.875rem" }}>
+          <i className="pi pi-exclamation-triangle" />
+          <span>Live updates disconnected. Refresh the page to reconnect.</span>
+          <button onClick={() => setSseError(false)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#991b1b" }}>
+            <i className="pi pi-times" />
+          </button>
+        </div>
+      )}
       {/* Desktop Sidebar */}
       <div
         className="hidden md:block shadow-2 fixed left-0 top-0 h-screen overflow-y-auto z-5"

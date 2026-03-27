@@ -1,0 +1,15 @@
+export const REQUEST_SELECT = {
+  id: true,
+  customerId: true,
+  name: true,
+  quantity: true,
+  description: true,
+  img_url: true,
+  quotePrice: true,
+  finalPrice: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  user: { select: { firstName: true, lastName: true } },
+  quotedBy: { select: { firstName: true, lastName: true } },
+} as const;

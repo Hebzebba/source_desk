@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import { notifyUpdate } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
-/*
-GET /api/users
-*/
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -21,38 +26,33 @@ export async function GET() {
         requests: true,
       },
     });
-
     return NextResponse.json(users);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 }
 
-/*
-POST /api/users
-*/
+// Admin-only: create an employee account
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
     const { email, firstName, lastName, password, role } = body;
 
-    // Validation
     if (!email || !firstName || !lastName || !password) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 409 });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const user = await prisma.user.create({
       data: {
         email,
@@ -63,13 +63,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await notifyUpdate();
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    console.error("User creation error:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to create user",
-      },
+      { error: error instanceof Error ? error.message : "Failed to create user" },
       { status: 500 },
     );
   }

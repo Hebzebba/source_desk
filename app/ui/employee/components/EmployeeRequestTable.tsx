@@ -71,18 +71,16 @@ export default function EmployeeRequestTable() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const fetchRequests = () => {
-      fetch("/api/request", { cache: "no-store" })
-        .then((res) => res.json())
-        .then((data: RequestData[]) => {
-          setRequests(Array.isArray(data) ? data : []);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+    const source = new EventSource("/api/events");
+    source.onmessage = (e) => {
+      const { requests } = JSON.parse(e.data);
+      if (Array.isArray(requests)) {
+        setRequests(requests);
+        setLoading(false);
+      }
     };
-    fetchRequests();
-    const interval = setInterval(fetchRequests, 5000);
-    return () => clearInterval(interval);
+    source.onerror = () => {};
+    return () => source.close();
   }, []);
 
   const filteredRequests = requests

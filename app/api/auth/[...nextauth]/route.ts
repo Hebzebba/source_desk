@@ -47,21 +47,26 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        await prisma.user.upsert({
-          where: { email: user.email! },
-          update: {},
-          create: {
-            email: user.email!,
-            firstName: user.name?.split(" ")[0] ?? "",
-            lastName: user.name?.split(" ").slice(1).join(" ") ?? "",
-            role: "CUSTOMER",
-          },
-        });
+        try {
+          await prisma.user.upsert({
+            where: { email: user.email! },
+            update: {},
+            create: {
+              email: user.email!,
+              firstName: user.name?.split(" ")[0] ?? "",
+              lastName: user.name?.split(" ").slice(1).join(" ") ?? "",
+              role: "CUSTOMER",
+            },
+          });
+        } catch (e) {
+          console.error("Failed to upsert Google user:", e);
+          return false;
+        }
       }
       return true;
     },
@@ -71,9 +76,12 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google" && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
-          select: { role: true },
+          select: { id: true, role: true },
         });
-        if (dbUser) token.role = normalizeRole(dbUser.role);
+        if (dbUser) {
+          token.sub = dbUser.id;
+          token.role = normalizeRole(dbUser.role);
+        }
       }
       return token;
     },

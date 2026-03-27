@@ -1,12 +1,12 @@
 "use client";
 
-import { signIn, getSession, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ProgressSpinner } from "primereact/progressspinner";
 import toast, { Toaster } from "react-hot-toast";
 
-async function login(e: React.FormEvent<HTMLFormElement>, setLoading: (v: boolean) => void, router: ReturnType<typeof useRouter>) {
+async function login(e: React.FormEvent<HTMLFormElement>, setLoading: (v: boolean) => void) {
   e.preventDefault();
   setLoading(true);
   const form = new FormData(e.currentTarget);
@@ -19,18 +19,7 @@ async function login(e: React.FormEvent<HTMLFormElement>, setLoading: (v: boolea
 
   if (res?.ok && !res.error) {
     toast.success("Login successful!");
-
-    // Wait for session to update, then fetch it
-    setTimeout(async () => {
-      const session = await getSession();
-      if (session?.user?.role === "admin") {
-        router.push("/ui/admin");
-      } else if (session?.user?.role === "employee") {
-        router.push("/ui/employee");
-      } else {
-        router.push("/ui/customer");
-      }
-    }, 500);
+    // useEffect handles role-based redirect once session updates
   } else if (res?.error) {
     toast.error("Invalid credentials");
   }
@@ -63,7 +52,7 @@ export default function Login() {
       <Toaster position="top-right" />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-gray-50 to-slate-200 px-4">
         <form
-          onSubmit={(e) => login(e, setLoading, router)}
+          onSubmit={(e) => login(e, setLoading)}
           className="w-full max-w-md rounded-2xl bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl p-8 space-y-6"
         >
           <div className="space-y-1 text-center">

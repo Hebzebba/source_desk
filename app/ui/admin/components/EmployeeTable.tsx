@@ -36,19 +36,25 @@ export default function EmployeeTable({ refreshKey }: { refreshKey?: number }) {
   });
 
   useEffect(() => {
-    setLoading(true);
-    const fetchUsers = () => {
-      fetch("/api/user", { cache: "no-store" })
-        .then((res) => res.json())
-        .then((data: Employee[]) => {
-          setEmployees(Array.isArray(data) ? data : []);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+    const source = new EventSource("/api/events");
+    source.onmessage = (e) => {
+      const { users } = JSON.parse(e.data);
+      if (Array.isArray(users)) {
+        setEmployees(users);
+        setLoading(false);
+      }
     };
-    fetchUsers();
-    const interval = setInterval(fetchUsers, 10000);
-    return () => clearInterval(interval);
+    source.onerror = () => {};
+    return () => source.close();
+  }, []);
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    setLoading(true);
+    fetch("/api/user", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: Employee[]) => setEmployees(Array.isArray(data) ? data : []))
+      .finally(() => setLoading(false));
   }, [refreshKey]);
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
