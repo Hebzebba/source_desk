@@ -45,3 +45,5 @@ next-env.d.ts
 /prisma/generated-client
 
 /app/generated/prisma
+
+/client_secret.json

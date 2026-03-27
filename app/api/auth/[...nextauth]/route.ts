@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import type { JWT } from "next-auth/jwt";
 import type { Session } from "next-auth";
 import bcrypt from "bcrypt";
@@ -15,6 +16,10 @@ const normalizeRole = (role?: string) => {
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -30,7 +35,7 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
-        if (!user || !user.password) return null;
+        if (!user || !user.password) return null; // Google-only users have no password
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
         return {
@@ -45,8 +50,31 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async jwt({ token, user }: { token: JWT; user?: { role?: string } }) {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        await prisma.user.upsert({
+          where: { email: user.email! },
+          update: {},
+          create: {
+            email: user.email!,
+            firstName: user.name?.split(" ")[0] ?? "",
+            lastName: user.name?.split(" ").slice(1).join(" ") ?? "",
+            role: "CUSTOMER",
+          },
+        });
+      }
+      return true;
+    },
+    async jwt({ token, user, account }: { token: JWT; user?: { role?: string }; account?: { provider?: string } | null }) {
       if (user?.role) token.role = normalizeRole(user.role);
+      // On Google sign-in, the user object doesn't carry the DB role — fetch it
+      if (account?.provider === "google" && token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: { role: true },
+        });
+        if (dbUser) token.role = normalizeRole(dbUser.role);
+      }
       return token;
     },
     async session({ session, token }: { session: Session; token: JWT }) {
