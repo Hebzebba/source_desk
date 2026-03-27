@@ -8,7 +8,14 @@ import { randomUUID } from "crypto";
 const BUCKET = process.env.MINIO_BUCKET || "source-desk";
 const MAX_FILES = 3;
 const MAX_SIZE = 5 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
+
+function isAllowedFile(file: File): boolean {
+  if (file.type && ALLOWED_TYPES.includes(file.type)) return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return ALLOWED_EXTS.includes(ext);
+}
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -28,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     for (const file of files) {
-      if (!ALLOWED_TYPES.includes(file.type)) {
+      if (!isAllowedFile(file)) {
         return NextResponse.json({ error: "Only JPEG, PNG, WebP, and GIF images are allowed" }, { status: 400 });
       }
       if (file.size > MAX_SIZE) {
